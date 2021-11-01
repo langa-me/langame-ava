@@ -34,8 +34,8 @@ def run(opt):
         manager.shutdown()
 
 
-#if __name__ == '__main__':
-def app():
+if __name__ == '__main__':
+#def app():
     opt = setup_args()
     config_path = opt.get('config_path')
     config = config_utils.parse_configuration_file(config_path)

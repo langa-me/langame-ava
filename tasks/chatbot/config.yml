@@ -11,9 +11,14 @@ max_workers: 30
 opt:
   debug: True
   models:
-    blender_90M:
+    #blender_90M:
+    #  model: transformer/generator
+    #  model_file: zoo:blender/blender_90M/model
+    #  interactive_mode: True
+    #  no_cuda: True
+    blenderbot2_3B:
       model: transformer/generator
-      model_file: zoo:blender/blender_90M/model
+      model_file: zoo:blenderbot2/blenderbot2_3B/model
       interactive_mode: True
       no_cuda: True
 additional_args:
