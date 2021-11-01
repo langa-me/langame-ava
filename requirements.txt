@@ -1,2 +1,2 @@
 parlai
-gunicorn
+transformers
