@@ -1,3 +1,6 @@
+```bash
+conda install --file requirements.txt
+```
 
 
 ```bash
