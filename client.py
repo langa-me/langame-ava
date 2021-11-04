@@ -4,13 +4,20 @@ import asyncio
 import websockets
 import json
 from concurrent.futures import TimeoutError as ConnectionTimeoutError
+import logging
+import time
+logging.basicConfig(level=logging.INFO)
 async def hello():
-    HOST = 'langame-ava-miqqfcvptq-uc.a.run.app'
-    # timeout in seconds
+    # HOST = 'langame-ava-miqqfcvptq-uc.a.run.app'
+    # HOST = '146.59.248.108:31236'
+    # HOST = 'localhost:8080'
+    HOST = 'bot.langa.me'
+    HTTPS = True
     timeout = 1200 
     try:
-    # make connection attempt
-        connection = await asyncio.wait_for(websockets.connect(f'wss://{HOST}/websocket'), timeout)
+        URL = f'{"wss" if HTTPS else "ws"}://{HOST}/websocket'
+        logging.info(f'Connecting to {URL}')
+        connection = await asyncio.wait_for(websockets.connect(URL), timeout)
         d = {
             "text": "hello"
         }
@@ -19,8 +26,6 @@ async def hello():
 
         greeting = await connection.recv()
         print("< {}".format(greeting))
-                
-                
         d = {
             "text": "begin"
         }
@@ -29,19 +34,9 @@ async def hello():
 
         greeting = await connection.recv()
         print("< {}".format(greeting))
+        time.sleep(100000)
     except ConnectionTimeoutError as e:
-        # handle error
-        print('Error connecting.')
-    # async with websockets.connect(f'ws://${HOST}:8080/websocket') as websocket:
-
-    #     d = {
-    #         "text": "hello"
-    #     }
-
-    #     await websocket.send(json.dumps(d))
-
-    #     greeting = await websocket.recv()
-    #     print("< {}".format(greeting))
+        print('Error connecting.', e)
 
 asyncio.get_event_loop().run_until_complete(hello())
 

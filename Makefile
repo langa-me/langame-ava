@@ -1,17 +1,6 @@
-OUT=internal/djinn
-OUT_DART=../langame-app/lib/models/djinn
+VERSION ?= latest-dev
 
-proto:
-	rm -rf ${OUT} ${OUT_DART}
-	mkdir -p ${OUT} ${OUT_DART}
-
-	protoc --go_out=. --go-grpc_out=. --dart_out=grpc:${OUT_DART} djinn.proto
-
-build:
-	go build -o bin/djinn cmd/djinn/main.go
-
-run:
-	go run cmd/djinn/main.go
-
-docker:
-	gcloud builds submit --tag IMAGE_URL
+docker_build_push:
+	docker build -t louis030195/ava:${VERSION} . -f ./Dockerfile
+	docker tag louis030195/ava:${VERSION} louis030195/ava:${VERSION}
+	docker push louis030195/ava:${VERSION}
