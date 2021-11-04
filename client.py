@@ -10,9 +10,9 @@ logging.basicConfig(level=logging.INFO)
 async def hello():
     # HOST = 'langame-ava-miqqfcvptq-uc.a.run.app'
     # HOST = '146.59.248.108:31236'
-    # HOST = 'localhost:8080'
-    HOST = 'bot.langa.me'
-    HTTPS = True
+    HOST = 'localhost:8080'
+    #HOST = 'bot.langa.me'
+    HTTPS = False
     timeout = 1200 
     try:
         URL = f'{"wss" if HTTPS else "ws"}://{HOST}/websocket'
