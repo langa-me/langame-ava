@@ -19,22 +19,22 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\tava.proto\x12\x03\x61va\"\x1d\n\nAvaRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x1e\n\x0b\x41vaResponse\x12\x0f\n\x07message\x18\x01 \x01(\t26\n\x03\x41va\x12/\n\x04\x43\x61ll\x12\x0f.ava.AvaRequest\x1a\x10.ava.AvaResponse\"\x00(\x01\x30\x01\x62\x06proto3'
+  serialized_pb=b'\n\tava.proto\x12\x03\x61va\"#\n\x10StreamAvaRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"5\n\x11StreamAvaResponse\x12 \n\tcall_info\x18\x01 \x01(\x0b\x32\r.ava.CallInfo\"\x1e\n\x08\x43\x61llInfo\x12\x12\n\nsession_id\x18\x01 \x01(\t2D\n\x03\x41va\x12=\n\x06Stream\x12\x15.ava.StreamAvaRequest\x1a\x16.ava.StreamAvaResponse\"\x00(\x01\x30\x01\x62\x06proto3'
 )
 
 
 
 
-_AVAREQUEST = _descriptor.Descriptor(
-  name='AvaRequest',
-  full_name='ava.AvaRequest',
+_STREAMAVAREQUEST = _descriptor.Descriptor(
+  name='StreamAvaRequest',
+  full_name='ava.StreamAvaRequest',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='message', full_name='ava.AvaRequest.message', index=0,
+      name='message', full_name='ava.StreamAvaRequest.message', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
@@ -53,20 +53,52 @@ _AVAREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=18,
-  serialized_end=47,
+  serialized_end=53,
 )
 
 
-_AVARESPONSE = _descriptor.Descriptor(
-  name='AvaResponse',
-  full_name='ava.AvaResponse',
+_STREAMAVARESPONSE = _descriptor.Descriptor(
+  name='StreamAvaResponse',
+  full_name='ava.StreamAvaResponse',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='message', full_name='ava.AvaResponse.message', index=0,
+      name='call_info', full_name='ava.StreamAvaResponse.call_info', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=55,
+  serialized_end=108,
+)
+
+
+_CALLINFO = _descriptor.Descriptor(
+  name='CallInfo',
+  full_name='ava.CallInfo',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='session_id', full_name='ava.CallInfo.session_id', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
@@ -84,27 +116,36 @@ _AVARESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=49,
-  serialized_end=79,
+  serialized_start=110,
+  serialized_end=140,
 )
 
-DESCRIPTOR.message_types_by_name['AvaRequest'] = _AVAREQUEST
-DESCRIPTOR.message_types_by_name['AvaResponse'] = _AVARESPONSE
+_STREAMAVARESPONSE.fields_by_name['call_info'].message_type = _CALLINFO
+DESCRIPTOR.message_types_by_name['StreamAvaRequest'] = _STREAMAVAREQUEST
+DESCRIPTOR.message_types_by_name['StreamAvaResponse'] = _STREAMAVARESPONSE
+DESCRIPTOR.message_types_by_name['CallInfo'] = _CALLINFO
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
-AvaRequest = _reflection.GeneratedProtocolMessageType('AvaRequest', (_message.Message,), {
-  'DESCRIPTOR' : _AVAREQUEST,
+StreamAvaRequest = _reflection.GeneratedProtocolMessageType('StreamAvaRequest', (_message.Message,), {
+  'DESCRIPTOR' : _STREAMAVAREQUEST,
   '__module__' : 'ava_pb2'
-  # @@protoc_insertion_point(class_scope:ava.AvaRequest)
+  # @@protoc_insertion_point(class_scope:ava.StreamAvaRequest)
   })
-_sym_db.RegisterMessage(AvaRequest)
+_sym_db.RegisterMessage(StreamAvaRequest)
 
-AvaResponse = _reflection.GeneratedProtocolMessageType('AvaResponse', (_message.Message,), {
-  'DESCRIPTOR' : _AVARESPONSE,
+StreamAvaResponse = _reflection.GeneratedProtocolMessageType('StreamAvaResponse', (_message.Message,), {
+  'DESCRIPTOR' : _STREAMAVARESPONSE,
   '__module__' : 'ava_pb2'
-  # @@protoc_insertion_point(class_scope:ava.AvaResponse)
+  # @@protoc_insertion_point(class_scope:ava.StreamAvaResponse)
   })
-_sym_db.RegisterMessage(AvaResponse)
+_sym_db.RegisterMessage(StreamAvaResponse)
+
+CallInfo = _reflection.GeneratedProtocolMessageType('CallInfo', (_message.Message,), {
+  'DESCRIPTOR' : _CALLINFO,
+  '__module__' : 'ava_pb2'
+  # @@protoc_insertion_point(class_scope:ava.CallInfo)
+  })
+_sym_db.RegisterMessage(CallInfo)
 
 
 
@@ -115,16 +156,16 @@ _AVA = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=81,
-  serialized_end=135,
+  serialized_start=142,
+  serialized_end=210,
   methods=[
   _descriptor.MethodDescriptor(
-    name='Call',
-    full_name='ava.Ava.Call',
+    name='Stream',
+    full_name='ava.Ava.Stream',
     index=0,
     containing_service=None,
-    input_type=_AVAREQUEST,
-    output_type=_AVARESPONSE,
+    input_type=_STREAMAVAREQUEST,
+    output_type=_STREAMAVARESPONSE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),

@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import ava.ava_pb2 as ava__pb2
+import ava_pb2 as ava__pb2
 
 
 class AvaStub(object):
@@ -14,17 +14,17 @@ class AvaStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Call = channel.stream_stream(
-                '/ava.Ava/Call',
-                request_serializer=ava__pb2.AvaRequest.SerializeToString,
-                response_deserializer=ava__pb2.AvaResponse.FromString,
+        self.Stream = channel.stream_stream(
+                '/ava.Ava/Stream',
+                request_serializer=ava__pb2.StreamAvaRequest.SerializeToString,
+                response_deserializer=ava__pb2.StreamAvaResponse.FromString,
                 )
 
 
 class AvaServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def Call(self, request_iterator, context):
+    def Stream(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -33,10 +33,10 @@ class AvaServicer(object):
 
 def add_AvaServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Call': grpc.stream_stream_rpc_method_handler(
-                    servicer.Call,
-                    request_deserializer=ava__pb2.AvaRequest.FromString,
-                    response_serializer=ava__pb2.AvaResponse.SerializeToString,
+            'Stream': grpc.stream_stream_rpc_method_handler(
+                    servicer.Stream,
+                    request_deserializer=ava__pb2.StreamAvaRequest.FromString,
+                    response_serializer=ava__pb2.StreamAvaResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -49,7 +49,7 @@ class Ava(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Call(request_iterator,
+    def Stream(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -59,8 +59,8 @@ class Ava(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(request_iterator, target, '/ava.Ava/Call',
-            ava__pb2.AvaRequest.SerializeToString,
-            ava__pb2.AvaResponse.FromString,
+        return grpc.experimental.stream_stream(request_iterator, target, '/ava.Ava/Stream',
+            ava__pb2.StreamAvaRequest.SerializeToString,
+            ava__pb2.StreamAvaResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

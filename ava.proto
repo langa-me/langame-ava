@@ -3,12 +3,17 @@ syntax = "proto3";
 package ava;
 
 service Ava {
-   rpc Call(stream AvaRequest) returns (stream AvaResponse) {}
+   rpc Stream(stream StreamAvaRequest) returns (stream StreamAvaResponse) {}
 }
 
-message AvaRequest {
+message StreamAvaRequest {
     string message = 1;
 }
-message AvaResponse {
-    string message = 1;
+message StreamAvaResponse {
+    CallInfo call_info = 1;
 }
+
+message CallInfo {
+    string session_id = 1;
+}
+  

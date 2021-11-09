@@ -36,7 +36,7 @@ venv-lint-test: ## [Continuous integration]
 
 test: ## [Local development] Run unit tests
 	rm -rf tests/test_folder/
-	python3 -m pytest -v .45 tests
+	python3 -m unittest -v
 
 .PHONY: help
 

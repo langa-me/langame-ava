@@ -20,8 +20,9 @@ if __name__ == "__main__":
         url="https://github.com/langa-me/langame-ava",
         data_files=[(".", ["README.md"])],
         install_requires=[
-            "grpcio",
-            "grpcio-tools"
+            "grpcio==1.40.0",
+            "grpcio-tools==1.40.0",
+            "grpcio-reflection"
         ],
         classifiers=[
             "Development Status :: 4 - Beta",
