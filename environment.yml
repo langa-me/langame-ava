@@ -1,0 +1,11 @@
+name: ava
+channels:
+  - pytorch
+  - conda-forge
+  - default
+dependencies:
+  - python=3.8
+  - scikit-learn
+  - numpy
+  - transformers
+  - grpcio

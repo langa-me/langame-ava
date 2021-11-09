@@ -3,3 +3,4 @@
 *svc*
 # Binary
 bin
+*.egg-info

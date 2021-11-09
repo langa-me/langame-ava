@@ -6,8 +6,9 @@ RUN virtualenv /opt/venv
 # Make sure we use the virtualenv:
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# git clone https://github.com/langa-me/ParlAI.git
+COPY ./ParlAI ./ParlAI
+RUN pip install transformers fairseq ./ParlAI
 
 FROM python:3.7-slim AS build-image
 COPY --from=compile-image /opt/venv /opt/venv
@@ -20,7 +21,7 @@ ENV PYTHONUNBUFFERED True
 # Copy local code to the container image.
 ENV APP_HOME /app
 WORKDIR $APP_HOME
-COPY *.py ./
+COPY ./langame-ava/ava/*.py ./
 
 ENTRYPOINT ["python", "run.py"]
 CMD ["--config_path", "./config.yaml", "--port", "8080"]
