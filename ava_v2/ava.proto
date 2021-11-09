@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package ava;
+
+service AvaService {
+   rpc GetAva(stream AvaRequest) returns (stream AvaResponse) {}
+}
+
+message AvaRequest {
+    string message = 1;
+}
+message AvaResponse {
+    string message = 1;
+}
