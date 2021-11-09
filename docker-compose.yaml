@@ -6,10 +6,4 @@ services:
       dockerfile: Dockerfile
       context: .
     ports:
-      - 8080:8080
-    volumes:
-      - ./config.yaml:/app/config.yaml
-      - data:/opt
-volumes:
-  config.yaml:
-  data:
+      - 50051:50051

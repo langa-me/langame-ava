@@ -2,10 +2,10 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import ava_pb2 as ava__pb2
+import ava.ava_pb2 as ava__pb2
 
 
-class AvaServiceStub(object):
+class AvaStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -14,42 +14,42 @@ class AvaServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetAva = channel.stream_stream(
-                '/ava.AvaService/GetAva',
+        self.Call = channel.stream_stream(
+                '/ava.Ava/Call',
                 request_serializer=ava__pb2.AvaRequest.SerializeToString,
                 response_deserializer=ava__pb2.AvaResponse.FromString,
                 )
 
 
-class AvaServiceServicer(object):
+class AvaServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def GetAva(self, request_iterator, context):
+    def Call(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_AvaServiceServicer_to_server(servicer, server):
+def add_AvaServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetAva': grpc.stream_stream_rpc_method_handler(
-                    servicer.GetAva,
+            'Call': grpc.stream_stream_rpc_method_handler(
+                    servicer.Call,
                     request_deserializer=ava__pb2.AvaRequest.FromString,
                     response_serializer=ava__pb2.AvaResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'ava.AvaService', rpc_method_handlers)
+            'ava.Ava', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
-class AvaService(object):
+class Ava(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def GetAva(request_iterator,
+    def Call(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -59,7 +59,7 @@ class AvaService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(request_iterator, target, '/ava.AvaService/GetAva',
+        return grpc.experimental.stream_stream(request_iterator, target, '/ava.Ava/Call',
             ava__pb2.AvaRequest.SerializeToString,
             ava__pb2.AvaResponse.FromString,
             options, channel_credentials,

@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\tava.proto\x12\x03\x61va\"\x1d\n\nAvaRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x1e\n\x0b\x41vaResponse\x12\x0f\n\x07message\x18\x01 \x01(\t2?\n\nAvaService\x12\x31\n\x06GetAva\x12\x0f.ava.AvaRequest\x1a\x10.ava.AvaResponse\"\x00(\x01\x30\x01\x62\x06proto3'
+  serialized_pb=b'\n\tava.proto\x12\x03\x61va\"\x1d\n\nAvaRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x1e\n\x0b\x41vaResponse\x12\x0f\n\x07message\x18\x01 \x01(\t26\n\x03\x41va\x12/\n\x04\x43\x61ll\x12\x0f.ava.AvaRequest\x1a\x10.ava.AvaResponse\"\x00(\x01\x30\x01\x62\x06proto3'
 )
 
 
@@ -108,19 +108,19 @@ _sym_db.RegisterMessage(AvaResponse)
 
 
 
-_AVASERVICE = _descriptor.ServiceDescriptor(
-  name='AvaService',
-  full_name='ava.AvaService',
+_AVA = _descriptor.ServiceDescriptor(
+  name='Ava',
+  full_name='ava.Ava',
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
   serialized_start=81,
-  serialized_end=144,
+  serialized_end=135,
   methods=[
   _descriptor.MethodDescriptor(
-    name='GetAva',
-    full_name='ava.AvaService.GetAva',
+    name='Call',
+    full_name='ava.Ava.Call',
     index=0,
     containing_service=None,
     input_type=_AVAREQUEST,
@@ -129,8 +129,8 @@ _AVASERVICE = _descriptor.ServiceDescriptor(
     create_key=_descriptor._internal_create_key,
   ),
 ])
-_sym_db.RegisterServiceDescriptor(_AVASERVICE)
+_sym_db.RegisterServiceDescriptor(_AVA)
 
-DESCRIPTOR.services_by_name['AvaService'] = _AVASERVICE
+DESCRIPTOR.services_by_name['Ava'] = _AVA
 
 # @@protoc_insertion_point(module_scope)
