@@ -6,6 +6,23 @@ option go_package = "github.com/langa-me/ava/v1";
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+    info: {
+        title: "Ava";
+        version: "1.0";
+        contact: {
+            name: "langame";
+            url: "https://github.com/langa-me/ava";
+            email: "contact@langa.me";
+        };
+    };
+
+    schemes: HTTP;
+    schemes: HTTPS;
+    consumes: "application/json";
+    produces: "application/json";
+};
+
 service Ava {
     rpc Stream(stream StreamAvaRequest) returns (stream StreamAvaResponse) {
         option (google.api.http) = {

@@ -1,13 +1,22 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "ava/v1/ava.proto",
-    "version": "version not set"
+    "title": "Ava",
+    "version": "1.0",
+    "contact": {
+      "name": "langame",
+      "url": "https://github.com/langa-me/ava",
+      "email": "contact@langa.me"
+    }
   },
   "tags": [
     {
       "name": "Ava"
     }
+  ],
+  "schemes": [
+    "http",
+    "https"
   ],
   "consumes": [
     "application/json"

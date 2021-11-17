@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from ava.v1 import ava_pb2 as ava_dot_v1_dot_ava__pb2
+from ava.v1 import api_pb2 as ava_dot_v1_dot_api__pb2
 
 
 class AvaStub(object):
@@ -16,8 +16,8 @@ class AvaStub(object):
         """
         self.Stream = channel.stream_stream(
                 '/ava.Ava/Stream',
-                request_serializer=ava_dot_v1_dot_ava__pb2.StreamAvaRequest.SerializeToString,
-                response_deserializer=ava_dot_v1_dot_ava__pb2.StreamAvaResponse.FromString,
+                request_serializer=ava_dot_v1_dot_api__pb2.StreamAvaRequest.SerializeToString,
+                response_deserializer=ava_dot_v1_dot_api__pb2.StreamAvaResponse.FromString,
                 )
 
 
@@ -35,8 +35,8 @@ def add_AvaServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Stream': grpc.stream_stream_rpc_method_handler(
                     servicer.Stream,
-                    request_deserializer=ava_dot_v1_dot_ava__pb2.StreamAvaRequest.FromString,
-                    response_serializer=ava_dot_v1_dot_ava__pb2.StreamAvaResponse.SerializeToString,
+                    request_deserializer=ava_dot_v1_dot_api__pb2.StreamAvaRequest.FromString,
+                    response_serializer=ava_dot_v1_dot_api__pb2.StreamAvaResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -60,7 +60,7 @@ class Ava(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.stream_stream(request_iterator, target, '/ava.Ava/Stream',
-            ava_dot_v1_dot_ava__pb2.StreamAvaRequest.SerializeToString,
-            ava_dot_v1_dot_ava__pb2.StreamAvaResponse.FromString,
+            ava_dot_v1_dot_api__pb2.StreamAvaRequest.SerializeToString,
+            ava_dot_v1_dot_api__pb2.StreamAvaResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

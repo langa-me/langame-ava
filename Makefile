@@ -58,6 +58,12 @@ install: ## [Local development] Upgrade pip, install requirements, install packa
 	python3 -m pip install -r requirements-test.txt
 
 
+swagger:
+	docker run -p 8080:8080 \
+		-e SWAGGER_JSON=/openapiv2/ava/v1/api.swagger.json \
+		-v $(shell pwd)/openapiv2/:/openapiv2 \
+		swaggerapi/swagger-ui
+
 .PHONY: help
 
 help: # Run `make help` to get help on the make commands
