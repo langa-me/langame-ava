@@ -17,20 +17,16 @@
 GATEWAY_FLAGS := -I ./proto -I include/googleapis -I include/grpc-gateway
 
 
-zz:
+proto: ## [Local development] Generate protos, openapi, grpc-gateway proxy.
 	mkdir -p openapiv2/
 	protoc $(GATEWAY_FLAGS) \
 		--openapiv2_out ./openapiv2 --openapiv2_opt logtostderr=true \
+		--go_out=plugins=grpc:. \
+		--grpc-gateway_out=logtostderr=true:. \
 		proto/ava/v1/*.proto
 	python3 -m grpc_tools.protoc $(GATEWAY_FLAGS) --python_out=. --grpc_python_out=. proto/ava/v1/*.proto
 
-gw:
-	protoc $(GATEWAY_FLAGS) \
-		--go_out=Mgoogle/api/annotations.proto=github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api,plugins=grpc:. \
-		--grpc-gateway_out=logtostderr=true:. \
-		*.proto
-
-deps:
+deps: ## [Local development] Install dependencies.
 	rm -rf include/googleapis/google
 	mkdir -p include/googleapis/google/api include/googleapis/google/rpc
 	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto -O include/googleapis/google/api/http.proto > /dev/null
@@ -42,6 +38,7 @@ deps:
 	mkdir -p include/grpc-gateway/protoc-gen-openapiv2/options
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/annotations.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/annotations.proto > /dev/null
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/openapiv2.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/openapiv2.proto > /dev/null
+	npm i -g @redocly/openapi-cli@latest
 	go install \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest \
@@ -58,7 +55,7 @@ install: ## [Local development] Upgrade pip, install requirements, install packa
 	python3 -m pip install -r requirements-test.txt
 
 
-swagger:
+swagger: ## [Local development] Run a swagger.
 	docker run -p 8080:8080 \
 		-e SWAGGER_JSON=/openapiv2/ava/v1/api.swagger.json \
 		-v $(shell pwd)/openapiv2/:/openapiv2 \
