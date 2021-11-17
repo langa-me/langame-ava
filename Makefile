@@ -13,30 +13,48 @@
 # search_docker_run:
 # 	docker run --rm --name ava-search louis030195/ava-search:${VERSION}
 
-proto:
-	python3 -m grpc_tools.protoc --proto_path=.  ./ava.proto --python_out=ava --grpc_python_out=ava
+
+GATEWAY_FLAGS := -I ./proto -I include/googleapis -I include/grpc-gateway
+
+
+zz:
+	mkdir -p openapiv2/
+	protoc $(GATEWAY_FLAGS) \
+		--openapiv2_out ./openapiv2 --openapiv2_opt logtostderr=true \
+		proto/ava/v1/*.proto
+	# python3 -m grpc_tools.protoc $(GATEWAY_FLAGS) --python_out=ava --grpc_python_out=ava *.proto
+
+gw:
+	protoc $(GATEWAY_FLAGS) \
+		--go_out=Mgoogle/api/annotations.proto=github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api,plugins=grpc:. \
+		--grpc-gateway_out=logtostderr=true:. \
+		*.proto
+
+deps:
+	rm -rf include/googleapis/google
+	mkdir -p include/googleapis/google/api include/googleapis/google/rpc
+	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto -O include/googleapis/google/api/http.proto > /dev/null
+	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto -O include/googleapis/google/api/annotations.proto > /dev/null
+	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/code.proto -O include/googleapis/google/rpc/code.proto > /dev/null
+	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/error_details.proto -O include/googleapis/google/rpc/error_details.proto > /dev/null
+	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/status.proto -O include/googleapis/google/rpc/status.proto > /dev/null
+	rm -rf include/grpc-gateway/protoc-gen-openapiv2
+	mkdir -p include/grpc-gateway/protoc-gen-openapiv2/options
+	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/annotations.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/annotations.proto > /dev/null
+	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/openapiv2.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/openapiv2.proto > /dev/null
+	go install \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest \
+		github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@latest \
+		google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+		google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 
 install: ## [Local development] Upgrade pip, install requirements, install package.
 	python3 -m pip install -U pip
 	python3 -m pip install -e .
-
-install-dev: ## [Local development] Install test requirements
 	python3 -m pip install -r requirements-test.txt
 
-lint: ## [Local development] Run mypy, pylint and black
-	python3 -m mypy ava
-	python3 -m pylint ava
-	python3 -m black --check -l 120 ava
-
-black: ## [Local development] Auto-format python code using black
-	python3 -m black -l 120 .
-
-venv-lint-test: ## [Continuous integration]
-	python3 -m venv .env && . .env/bin/activate && make install install-dev lint test && rm -rf .env
-
-test: ## [Local development] Run unit tests
-	rm -rf tests/test_folder/
-	python3 -m unittest -v
 
 .PHONY: help
 
