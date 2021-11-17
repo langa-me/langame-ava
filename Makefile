@@ -22,7 +22,7 @@ zz:
 	protoc $(GATEWAY_FLAGS) \
 		--openapiv2_out ./openapiv2 --openapiv2_opt logtostderr=true \
 		proto/ava/v1/*.proto
-	# python3 -m grpc_tools.protoc $(GATEWAY_FLAGS) --python_out=ava --grpc_python_out=ava *.proto
+	python3 -m grpc_tools.protoc $(GATEWAY_FLAGS) --python_out=. --grpc_python_out=. proto/ava/v1/*.proto
 
 gw:
 	protoc $(GATEWAY_FLAGS) \
@@ -51,6 +51,8 @@ deps:
 
 
 install: ## [Local development] Upgrade pip, install requirements, install package.
+	python3 -m virtualenv env
+	source env/bin/activate
 	python3 -m pip install -U pip
 	python3 -m pip install -e .
 	python3 -m pip install -r requirements-test.txt

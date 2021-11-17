@@ -9,7 +9,7 @@ import "protoc-gen-openapiv2/options/annotations.proto";
 service Ava {
     rpc Stream(stream StreamAvaRequest) returns (stream StreamAvaResponse) {
         option (google.api.http) = {
-            post: "/api/v1/notes"
+            post: "/api/v1/ava"
             body: "*"
         };
     }
