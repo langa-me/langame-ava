@@ -17,6 +17,21 @@
 GATEWAY_FLAGS := -I ./proto -I include/googleapis -I include/grpc-gateway
 
 
+redoc: ## [Local development] redoc.
+	docker run -p 8080:80 \
+		-v $(shell pwd)/openapiv2/ava/v1:/usr/share/nginx/html/openapiv2/ \
+		-e SPEC_URL=openapiv2/api.swagger.json \
+		redocly/redoc
+
+swagger: ## [Local development] Run a swagger.
+	docker run -p 8080:8080 \
+		-e SWAGGER_JSON=/openapiv2/ava/v1/api.swagger.json \
+		-v $(shell pwd)/openapiv2/:/openapiv2 \
+		swaggerapi/swagger-ui
+
+lint: ## [Local development] Lint.
+	openapi lint openapiv2/ava/v1/api.swagger.json
+
 proto: ## [Local development] Generate protos, openapi, grpc-gateway proxy.
 	mkdir -p openapiv2/
 	protoc $(GATEWAY_FLAGS) \
@@ -54,12 +69,6 @@ install: ## [Local development] Upgrade pip, install requirements, install packa
 	python3 -m pip install -e .
 	python3 -m pip install -r requirements-test.txt
 
-
-swagger: ## [Local development] Run a swagger.
-	docker run -p 8080:8080 \
-		-e SWAGGER_JSON=/openapiv2/ava/v1/api.swagger.json \
-		-v $(shell pwd)/openapiv2/:/openapiv2 \
-		swaggerapi/swagger-ui
 
 .PHONY: help
 

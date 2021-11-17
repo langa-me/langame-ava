@@ -12,7 +12,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
         version: "1.0";
         contact: {
             name: "langame";
-            url: "https://github.com/langa-me/ava";
+            url: "https://langa.me";
             email: "contact@langa.me";
         };
     };
