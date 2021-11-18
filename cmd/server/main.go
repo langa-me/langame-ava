@@ -52,13 +52,13 @@ func main() {
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_zap.StreamServerInterceptor(logger),
-			grpc_auth.StreamServerInterceptor(server.AuthFunc)),
+			grpc_auth.StreamServerInterceptor(starter.AuthFunc)),
 		),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_zap.UnaryServerInterceptor(logger),
-			grpc_auth.UnaryServerInterceptor(server.AuthFunc)),
+			grpc_auth.UnaryServerInterceptor(starter.AuthFunc)),
 		),
 	)
 	// Override the default gRPC server with our unauthenticated server
@@ -70,11 +70,11 @@ func main() {
 	fb, err := firebase.NewApp(ctx, &firebase.Config{
 		ProjectID: "langame-dev",
 	})
-	server.App = fb
+	starter.App = fb
 	if err != nil {
 		panic(fmt.Sprintf("Failed to init firebase: %v", err))
 	}
-	api.RegisterConversationStarterServiceServer(grpcServer, server.NewServer())
+	api.RegisterConversationStarterServiceServer(grpcServer, starter.NewServer())
 
 	wrappedGrpc := grpcweb.WrapServer(grpcServer)
 	if err := http.ListenAndServe(":"+port, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

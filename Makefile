@@ -1,18 +1,3 @@
-# VERSION ?= latest-dev
-
-# docker_build_push:
-# 	docker build -t louis030195/ava:${VERSION} .. -f ./Dockerfile
-# 	docker tag louis030195/ava:${VERSION} louis030195/ava:${VERSION}
-# 	docker push louis030195/ava:${VERSION}
-
-# search_docker_build_push:
-# 	docker build -t louis030195/ava-search:${VERSION} ./search_engine -f ./search_engine/Dockerfile
-# 	docker tag louis030195/ava-search:${VERSION} louis030195/ava-search:${VERSION}
-# 	docker push louis030195/ava-search:${VERSION}
-
-# search_docker_run:
-# 	docker run --rm --name ava-search louis030195/ava-search:${VERSION}
-
 # Store the protobuf installation command into a variable for use later
 PROTOBUF_INSTALL = ""
 UNAME := $(shell uname)
@@ -55,6 +40,11 @@ compile: ## [Local development] Generate protos, openapi, grpc-gateway proxy.
 		--grpc-gateway_out=logtostderr=true:$(OUT) \
 		$(OUT)/*.proto
 
+	# TODO:
+	# --js_out=import_style=commonjs:${OUT_JS} \
+    # --grpc-web_out=import_style=typescript,mode=grpcwebtext:${OUT_JS}
+
+
 deps: ## [Local development] Install dependencies.
 	$(shell ${PROTOBUF_INSTALL})
 	@which go > /dev/null || (echo "go need to be installed" && exit 1)
@@ -78,6 +68,14 @@ download_third_parties: ## [Local development] Download third-parties.
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/annotations.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/annotations.proto > /dev/null
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/openapiv2.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/openapiv2.proto > /dev/null
 	
+
+# VERSION ?= latest-dev
+
+# docker_build_push:
+# 	docker build -t louis030195/ava:${VERSION} .. -f ./Dockerfile
+# 	docker tag louis030195/ava:${VERSION} louis030195/ava:${VERSION}
+# 	docker push louis030195/ava:${VERSION}
+
 
 .PHONY: help
 
