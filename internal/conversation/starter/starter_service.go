@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	API_URL = "https://SOMETHING"
+	API_URL = "https://us-central1-langame-dev.cloudfunctions.net/conversation_starter"
 )
 
 func Query(payload string) (*string, error) {
