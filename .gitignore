@@ -3,5 +3,3 @@
 *svc*
 # Binary
 bin
-*.egg-info
-*__pycache__*

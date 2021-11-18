@@ -5,13 +5,13 @@
     "version": "1.0",
     "contact": {
       "name": "langame",
-      "url": "https://github.com/langa-me/ava",
+      "url": "https://langa.me",
       "email": "contact@langa.me"
     }
   },
   "tags": [
     {
-      "name": "Ava"
+      "name": "ConversationStarterService"
     }
   ],
   "schemes": [
@@ -25,23 +25,14 @@
     "application/json"
   ],
   "paths": {
-    "/api/v1/ava": {
+    "/api/conversation/starter/v1": {
       "post": {
-        "operationId": "Ava_Stream",
+        "operationId": "ConversationStarterService_GetConversationStarter",
         "responses": {
           "200": {
-            "description": "A successful response.(streaming responses)",
+            "description": "A successful response.",
             "schema": {
-              "type": "object",
-              "properties": {
-                "result": {
-                  "$ref": "#/definitions/avaStreamAvaResponse"
-                },
-                "error": {
-                  "$ref": "#/definitions/rpcStatus"
-                }
-              },
-              "title": "Stream result of avaStreamAvaResponse"
+              "$ref": "#/definitions/v1ConversationStarterResponse"
             }
           },
           "default": {
@@ -54,45 +45,20 @@
         "parameters": [
           {
             "name": "body",
-            "description": " (streaming inputs)",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/avaStreamAvaRequest"
+              "$ref": "#/definitions/v1ConversationStarterRequest"
             }
           }
         ],
         "tags": [
-          "Ava"
+          "ConversationStarterService"
         ]
       }
     }
   },
   "definitions": {
-    "avaCallInfo": {
-      "type": "object",
-      "properties": {
-        "sessionId": {
-          "type": "string"
-        }
-      }
-    },
-    "avaStreamAvaRequest": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string"
-        }
-      }
-    },
-    "avaStreamAvaResponse": {
-      "type": "object",
-      "properties": {
-        "callInfo": {
-          "$ref": "#/definitions/avaCallInfo"
-        }
-      }
-    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -117,6 +83,22 @@
           "items": {
             "$ref": "#/definitions/protobufAny"
           }
+        }
+      }
+    },
+    "v1ConversationStarterRequest": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string"
+        }
+      }
+    },
+    "v1ConversationStarterResponse": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "string"
         }
       }
     }

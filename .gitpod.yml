@@ -1,10 +1,10 @@
 tasks:
     - name: Install dependencies
       command: |
-        export PIP_USER=false
-        pip install -r requirements-test.txt
-        pip install -r requirements.txt
-        pip freeze
+        make install &
+        make deps &
+        docker pull redocly/redoc &
+        docker pull swaggerapi/swagger-ui
     - name: Secrets
       command: |
         eval $(gp env -e)
@@ -31,15 +31,9 @@ vscode:
     - googlecloudtools.cloudcode
     - hbenl.vscode-test-explorer
     - k--kato.intellij-idea-keybindings
-    - littlefoxteam.vscode-python-test-adapter
     - mechatroner.rainbow-csv
     - ms-azuretools.vscode-docker
     - ms-kubernetes-tools.vscode-kubernetes-tools
-    - ms-python.python
-    - ms-python.vscode-pylance
-    - ms-toolsai.jupyter
-    - ms-toolsai.jupyter-keymap
-    - ms-toolsai.jupyter-renderers
     - ms-vscode-remote.remote-containers
     - ms-vscode-remote.remote-ssh
     - ms-vscode-remote.remote-ssh-edit
@@ -53,3 +47,4 @@ vscode:
     - toba.vsfire
     - wix.vscode-import-cost
     - zxh404.vscode-proto3
+    - golang.go

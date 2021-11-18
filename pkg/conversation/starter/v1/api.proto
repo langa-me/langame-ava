@@ -1,8 +1,9 @@
 syntax = "proto3";
-
-package ava;
-option go_package = "github.com/langa-me/ava/v1";
-
+ 
+package starter.v1;
+ 
+option go_package = ".;v1";
+ 
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
@@ -23,23 +24,19 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     produces: "application/json";
 };
 
-service Ava {
-    rpc Stream(stream StreamAvaRequest) returns (stream StreamAvaResponse) {
+message ConversationStarterRequest {
+    string input = 1;
+}
+ 
+message ConversationStarterResponse {
+    string output = 1; 
+}
+ 
+service ConversationStarterService {
+    rpc GetConversationStarter(ConversationStarterRequest) returns (ConversationStarterResponse) {
         option (google.api.http) = {
-            post: "/api/v1/ava"
+            post: "/api/conversation/starter/v1"
             body: "*"
         };
     }
 }
-
-message StreamAvaRequest {
-    string message = 1;
-}
-message StreamAvaResponse {
-    CallInfo call_info = 1;
-}
-
-message CallInfo {
-    string session_id = 1;
-}
-  
