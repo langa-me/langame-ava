@@ -1,43 +1,37 @@
-package server
+package starter
 
 import (
 	"context"
-	"io"
+	"log"
 
 	firebase "firebase.google.com/go"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 
-	api "github.com/langa-me/langame-ava/internal/langame/ava/v1"
+	api "github.com/langa-me/langame-ava/pkg/v1/conversation/starter"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-var _ api.AvaServer = (*server)(nil)
+var _ api.ConversationStarterServiceServer = (*server)(nil)
 var App *firebase.App
 
 type server struct {
-	api.UnimplementedAvaServer
+	api.UnimplementedConversationStarterServiceServer
 }
 
 func NewServer() *server {
 	return &server{}
 }
 
-func (s *server) Stream(stream api.Ava_StreamServer) error {
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		print(in)
-		if err := stream.Send(&api.StreamAvaResponse{}); err != nil {
-			return err
-		}
+func (*server) GetConversationStarter(ctx context.Context, req *api.ConversationStarterRequest) (*api.ConversationStarterResponse, error) {
+	log.Println(req.GetInput())
+ 
+	if req.GetInput() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "input is empty")
 	}
+ 
+	return &api.ConversationStarterResponse{Output: "random"}, nil
 }
 
 /// Fetch Firestore to see if this API key is valid

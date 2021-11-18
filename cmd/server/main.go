@@ -16,8 +16,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/langa-me/langame-ava/internal/config"
-	api "github.com/langa-me/langame-ava/internal/langame/ava/v1"
-	"github.com/langa-me/langame-ava/internal/server"
+	api "github.com/langa-me/langame-ava/pkg/v1/conversation/starter"
+	"github.com/langa-me/langame-ava/internal/conversation/starter"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -74,7 +74,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to init firebase: %v", err))
 	}
-	api.RegisterAvaServer(grpcServer, server.NewServer())
+	api.RegisterConversationStarterServiceServer(grpcServer, server.NewServer())
 
 	wrappedGrpc := grpcweb.WrapServer(grpcServer)
 	if err := http.ListenAndServe(":"+port, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

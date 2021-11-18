@@ -25,14 +25,14 @@
     "application/json"
   ],
   "paths": {
-    "/api/conversation/starter/v1": {
+    "/v1/api/conversation/starter": {
       "post": {
         "operationId": "ConversationStarterService_GetConversationStarter",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1ConversationStarterResponse"
+              "$ref": "#/definitions/starterConversationStarterResponse"
             }
           },
           "default": {
@@ -48,7 +48,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/v1ConversationStarterRequest"
+              "$ref": "#/definitions/starterConversationStarterRequest"
             }
           }
         ],
@@ -86,7 +86,7 @@
         }
       }
     },
-    "v1ConversationStarterRequest": {
+    "starterConversationStarterRequest": {
       "type": "object",
       "properties": {
         "input": {
@@ -94,7 +94,7 @@
         }
       }
     },
-    "v1ConversationStarterResponse": {
+    "starterConversationStarterResponse": {
       "type": "object",
       "properties": {
         "output": {

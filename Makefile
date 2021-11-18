@@ -28,9 +28,8 @@ ifeq ($(UNAME),Linux)
 	PROTOBUF_INSTALL = $(shell sudo apt install -y protobuf-compiler)
 endif
 
-
-GATEWAY_FLAGS := -I ./pkg/conversation/starter/v1 -I third_parties/googleapis -I third_parties/grpc-gateway
-OUT := pkg/conversation/starter/v1
+OUT := pkg/v1/conversation/starter
+GATEWAY_FLAGS := -I $(OUT) -I third_parties/googleapis -I third_parties/grpc-gateway
 
 redoc: ## [Local development] redoc.
 	docker run -p 8080:80 \
@@ -64,16 +63,6 @@ deps: ## [Local development] Install dependencies.
 	go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@latest
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-
-install: ## [Local development] Upgrade pip, install requirements, install package.
-	( \
-       	python3 -m virtualenv env; \
-		. env/bin/activate; \
-		python3 -m pip install -U pip; \
-		python3 -m pip install -e .; \
-		python3 -m pip install -r requirements-test.txt; \
-    )
 
 
 download_third_parties: ## [Local development] Download third-parties.

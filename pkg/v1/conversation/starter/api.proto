@@ -1,8 +1,8 @@
 syntax = "proto3";
  
-package starter.v1;
+package starter;
  
-option go_package = ".;v1";
+option go_package = ".;starter";
  
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
@@ -35,7 +35,7 @@ message ConversationStarterResponse {
 service ConversationStarterService {
     rpc GetConversationStarter(ConversationStarterRequest) returns (ConversationStarterResponse) {
         option (google.api.http) = {
-            post: "/api/conversation/starter/v1"
+            post: "/v1/api/conversation/starter"
             body: "*"
         };
     }
