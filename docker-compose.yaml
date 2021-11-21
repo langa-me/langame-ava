@@ -1,4 +1,4 @@
-version: '3.9'
+version: '3.7'
 
 services:
   ava:
@@ -7,3 +7,14 @@ services:
       context: .
     ports:
       - 8080:8080
+    volumes:
+      - ./svc.dev.json:/etc/secrets/primary/svc.json
+    # entrypoint:
+    #   - /bin/sh
+    #   - -c
+    #   - |
+    #     echo "Hello from the entrypoint!"
+    #     echo "The service is running on port 8080"
+    #     while true; do
+    #       sleep 1
+    #     done

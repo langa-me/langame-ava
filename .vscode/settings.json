@@ -1,10 +1,4 @@
 {
-    "go.testFlags": [
-        "-v",
-        "-timeout=10s"
-    ],
-    "go.lintCode": true,
-    "go.lintOnSave": true,
     "protoc": {
         "path": "/usr/local/bin/protoc",
         "compile_on_save": false,

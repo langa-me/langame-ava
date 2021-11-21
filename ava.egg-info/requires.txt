@@ -1,0 +1,13 @@
+grpcio==1.40.0
+grpcio-tools==1.40.0
+grpcio-reflection
+grpcio-status
+gcloud
+google-api-python-client
+protobuf
+grpc-gateway-protoc-gen-openapiv2
+openai
+transformers
+firebase_admin
+sentencepiece
+torch

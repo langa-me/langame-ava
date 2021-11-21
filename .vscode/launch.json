@@ -1,15 +1,4 @@
 {
     "configurations": [
-        {
-            "name": "Start local server",
-            "type": "go",
-            "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceRoot}/cmd/djinn/main.go",
-            "args": [
-                "-config_path",
-                "${workspaceRoot}/config.yaml"
-            ],
-        },
     ]
 }

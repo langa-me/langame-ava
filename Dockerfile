@@ -1,18 +1,28 @@
-FROM golang as build
+FROM python:3.8-slim AS compile-image
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends build-essential gcc && pip3 install virtualenv
 
-WORKDIR /app
+RUN virtualenv /opt/venv
+# Make sure we use the virtualenv:
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY . .
+RUN pip install -e .
 
-# Build static binary
-RUN CGO_ENABLED=0 GOOS=linux \
-    go build -a -installsuffix cgo \
-    -o /go/bin/server \
-    cmd/server/main.go
+# FROM python:3.8-slim AS build-image
+# COPY --from=compile-image /opt/venv /opt/venv
 
-FROM scratch
+# Make sure we use the virtualenv:
+# ENV PATH="/opt/venv/bin:$PATH"
+# Allow statements and log messages to immediately appear in the Knative logs
+ENV PYTHONUNBUFFERED True
+ENV PORT 8080
 
-COPY --from=build /go/bin/server /server
-COPY --from=build /app/config.yaml /config.yaml
+# Copy local code to the container image.
+# ENV APP_HOME /app
+# WORKDIR $APP_HOME
+# COPY --from=compile-image /ava.egg-info ava.egg-info
 
-ENTRYPOINT ["/server", "./config.yaml"]
+COPY ava ava
+
+ENTRYPOINT ["python3", "ava/main.py"]

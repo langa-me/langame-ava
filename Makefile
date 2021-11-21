@@ -1,20 +1,34 @@
-# Store the protobuf installation command into a variable for use later
-PROTOBUF_INSTALL = ""
-UNAME := $(shell uname)
+REGISTRY ?= gcr.io/langame-dev/conversation-starter
+VERSION ?= latest-dev
+GATEWAY_FLAGS := -I ./proto -I include/googleapis -I include/grpc-gateway
+OPENAI_KEY ?= foo
+OPENAI_ORG ?= bar
+SVC_DEV_PATH ?= "../svc.dev.json"
+SVC_PROD_PATH ?= "../svc.prod.json"
+GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
+GCP_RUN_SVC:=$(shell gcloud iam service-accounts list --filter="Default compute service account" --format 'value(email)' 2>/dev/null)
+docker_build: ## TODO
+	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile
 
-ifeq ($(UNAME),Windows)
-	echo "Windows? In 2021?"
-	exit 1
-endif
-ifeq ($(UNAME),Darwin)
-	PROTOBUF_INSTALL = $(shell brew install protobuf)
-endif
-ifeq ($(UNAME),Linux)
-	PROTOBUF_INSTALL = $(shell sudo apt install -y protobuf-compiler)
-endif
+docker_run: ## TODO
+	docker run -p 8080:8080 \
+		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
+		-e OPENAI_KEY=${OPENAI_KEY} \
+		-e OPENAI_ORG=${OPENAI_ORG} \
+		${REGISTRY}:${VERSION}
 
-OUT := pkg/v1/conversation/starter
-GATEWAY_FLAGS := -I $(OUT) -I third_parties/googleapis -I third_parties/grpc-gateway
+deploy: docker_build ## [Local development] deploy to GCP.
+	docker push ${REGISTRY}:${VERSION}
+	gcloud run deploy conversation-starter \
+		--image ${REGISTRY}:${VERSION} \
+		--region us-central1 \
+		--set-secrets "/etc/secrets/primary/svc.json=service_account_dev:1" \
+		--set-secrets "OPENAI_KEY=openai_key:1" \
+		--set-secrets "OPENAI_ORG=openai_org:1" \
+		--allow-unauthenticated \
+		--memory=2Gi \
+		--use-http2 \
+		--max-instances=1
 
 redoc: ## [Local development] redoc.
 	docker run -p 8080:80 \
@@ -29,33 +43,26 @@ swagger: ## [Local development] Run a swagger.
 		swaggerapi/swagger-ui
 
 lint: ## [Local development] Lint.
-	openapi lint openapiv2/ava/v1/api.swagger.json || echo "Failed, might need npm i -g @redocly/openapi-cli@latest ? :)"
+	openapi lint openapiv2/ava/v1/api.swagger.json
 
-compile: ## [Local development] Generate protos, openapi, grpc-gateway proxy.
-	mkdir -p $(OUT)
+protos: ## [Local development] Generate protos, openapi, grpc-gateway proxy.
+	mkdir -p openapiv2/
+	# TODO https://cloud.google.com/api-gateway/docs/get-started-cloud-run-grpc
 	protoc $(GATEWAY_FLAGS) \
-		--openapiv2_out $(OUT) --openapiv2_opt logtostderr=true \
-		--go_out=$(OUT) \
-		--go-grpc_out=$(OUT) \
-		--grpc-gateway_out=logtostderr=true:$(OUT) \
-		$(OUT)/*.proto
-
-	# TODO:
-	# --js_out=import_style=commonjs:${OUT_JS} \
-    # --grpc-web_out=import_style=typescript,mode=grpcwebtext:${OUT_JS}
-
+		--openapiv2_out ./openapiv2 --openapiv2_opt logtostderr=true \
+		--go_out=. \
+		--go-grpc_out=. \
+		--grpc-gateway_out=logtostderr=true:. \
+		proto/ava/v1/*.proto
+	python3 -m grpc_tools.protoc $(GATEWAY_FLAGS) \
+		--python_out=. \
+		--descriptor_set_out=ava/v1/api_descriptor.pb \
+		--grpc_python_out=. \
+		--include_imports \
+		--include_source_info \
+		proto/ava/v1/*.proto
 
 deps: ## [Local development] Install dependencies.
-	$(shell ${PROTOBUF_INSTALL})
-	@which go > /dev/null || (echo "go need to be installed" && exit 1)
-	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
-	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
-	go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@latest
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-
-download_third_parties: ## [Local development] Download third-parties.
 	rm -rf include/googleapis/google
 	mkdir -p include/googleapis/google/api include/googleapis/google/rpc
 	wget https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto -O include/googleapis/google/api/http.proto > /dev/null
@@ -67,15 +74,36 @@ download_third_parties: ## [Local development] Download third-parties.
 	mkdir -p include/grpc-gateway/protoc-gen-openapiv2/options
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/annotations.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/annotations.proto > /dev/null
 	wget https://raw.githubusercontent.com/grpc-ecosystem/grpc-gateway/master/protoc-gen-openapiv2/options/openapiv2.proto -O include/grpc-gateway/protoc-gen-openapiv2/options/openapiv2.proto > /dev/null
+	# npm i -g @redocly/openapi-cli@latest
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+	go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@latest
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+
+install: ## [Local development] Upgrade pip, install requirements, install package.
+	(\
+		python3 -m virtualenv env; \
+		. env/bin/activate; \
+		python3 -m pip install -U pip; \
+		python3 -m pip install -e .; \
+		python3 -m pip install -r requirements-test.txt; \
+	)
+
+create_secret: ##[Local development] create secret in GCP.
 	
+	printf ${OPENAI_KEY} | gcloud secrets create openai_key --data-file=-
+	gcloud beta secrets add-iam-policy-binding openai_key --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
-# VERSION ?= latest-dev
+	printf ${OPENAI_ORG} | gcloud secrets create openai_org --data-file=-
+	gcloud beta secrets add-iam-policy-binding openai_org --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+	
+	gcloud secrets create service_account_dev --data-file=${SVC_DEV_PATH}
+	gcloud beta secrets add-iam-policy-binding service_account_dev --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
-# docker_build_push:
-# 	docker build -t louis030195/ava:${VERSION} .. -f ./Dockerfile
-# 	docker tag louis030195/ava:${VERSION} louis030195/ava:${VERSION}
-# 	docker push louis030195/ava:${VERSION}
-
+	gcloud secrets create service_account_prod --data-file=${SVC_PROD_PATH}
+	gcloud beta secrets add-iam-policy-binding service_account_prod --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
 .PHONY: help
 
