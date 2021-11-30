@@ -25,4 +25,5 @@ ENV PORT 8080
 
 COPY ava ava
 
-ENTRYPOINT ["python3", "ava/main.py"]
+ENTRYPOINT ["ava"]
+CMD ["--fix_grammar", "False"]

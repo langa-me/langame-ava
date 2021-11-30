@@ -23,7 +23,8 @@ if __name__ == "__main__":
             "transformers",
             "firebase_admin",
             "sentencepiece",
-            "torch"
+            "torch",
+            "fire"
         ],
         classifiers=[
             "Development Status :: 4 - Beta",

@@ -1,4 +1,5 @@
 import asyncio
+from typing import List
 import grpc
 from ava import ConversationStarterRequest, ConversationStarterServiceStub
 import unittest
@@ -10,13 +11,13 @@ CHANNEL_OPTIONS = [
 ]
 
 
-async def run() -> None:
+async def run(topics: List[str] = ["ice breaker"]) -> None:
     async with grpc.aio.insecure_channel(
         target="localhost:8080", options=CHANNEL_OPTIONS
     ) as channel:
         stub = ConversationStarterServiceStub(channel)
         request = ConversationStarterRequest()
-        request.topics.extend(["ice breaker"])
+        request.topics.extend(topics)
         response = await stub.GetConversationStarter(request)
         print(response)
 
@@ -24,3 +25,10 @@ class TestClient(unittest.TestCase):
     def test_client(self):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(run())
+
+    def test_invalid_topic_should_throw(self):
+        loop = asyncio.get_event_loop()
+        try:
+            loop.run_until_complete(run(["foo"]))
+        except grpc.RpcError as e:
+            self.assertEqual(e.code(), grpc.StatusCode.INTERNAL)

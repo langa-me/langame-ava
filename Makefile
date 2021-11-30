@@ -7,17 +7,19 @@ SVC_DEV_PATH ?= "../svc.dev.json"
 SVC_PROD_PATH ?= "../svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
 GCP_RUN_SVC:=$(shell gcloud iam service-accounts list --filter="Default compute service account" --format 'value(email)' 2>/dev/null)
+
 docker_build: ## TODO
 	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile
 
 docker_run: ## TODO
 	docker run -p 8080:8080 \
 		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
+		-v $(shell pwd)/data:/.cache \
 		-e OPENAI_KEY=${OPENAI_KEY} \
 		-e OPENAI_ORG=${OPENAI_ORG} \
-		${REGISTRY}:${VERSION}
+		${REGISTRY}:${VERSION} --fix_grammar False
 
-deploy: docker_build ## [Local development] deploy to GCP.
+deploy_run: docker_build ## [Local development] deploy to GCP.
 	docker push ${REGISTRY}:${VERSION}
 	gcloud run deploy conversation-starter \
 		--image ${REGISTRY}:${VERSION} \
@@ -28,7 +30,17 @@ deploy: docker_build ## [Local development] deploy to GCP.
 		--allow-unauthenticated \
 		--memory=2Gi \
 		--use-http2 \
-		--max-instances=1
+		--max-instances=5
+
+create_svc_in_k8s: ## [Local development] create service account in Kubernetes.
+	kubectl create namespace ava
+	kubectl create secret generic google-cloud-service-account --from-file=svc.json=./svc.dev.json -n ava
+
+deploy_k8s: ## [Local development] deploy to Kubernetes.
+	helm install ava helm -f helm/values-dev.yaml -n ava --create-namespace
+
+undeploy_k8s: ## [Local development] undeploy from Kubernetes.
+	helm uninstall ava -n ava
 
 redoc: ## [Local development] redoc.
 	docker run -p 8080:80 \
