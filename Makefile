@@ -12,7 +12,7 @@ docker_build: ## TODO
 	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile
 
 docker_run: ## TODO
-	docker run -p 8080:8080 \
+	docker run -p 8081:8080 \
 		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
 		-v $(shell pwd)/data:/.cache \
 		-e OPENAI_KEY=${OPENAI_KEY} \

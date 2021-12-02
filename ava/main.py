@@ -22,15 +22,16 @@ import openai
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 # Own libs
-from arrays import get_prompt
+from logic import generate_conversation_starter
 from strings import string_similarity
 
 # Coroutines to be invoked when the event loop is shutting down.
 _cleanup_coroutines = []
 
 class Ava(ConversationStarterServiceServicer):
-    def __init__(self, fix_grammar: bool = False):
+    def __init__(self, fix_grammar: bool = False, logger: logging.Logger = None):
         self.fix_grammar = fix_grammar
+        self.logger = logger
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
             self.device = "cpu"
@@ -45,7 +46,7 @@ class Ava(ConversationStarterServiceServicer):
 
         assert self.memes, "No memes in database"
 
-        logging.info(f"Fetched {len(self.memes)} memes")
+        self.logger.info(f"Fetched {len(self.memes)} memes")
 
     async def GetConversationStarter(
         self,
@@ -57,32 +58,17 @@ class Ava(ConversationStarterServiceServicer):
                 context.set_details("No topics in request")
                 return ConversationStarterResponse()
             topics = request.topics
-
+            conversation_starter = None
+            new_topics = None
             for _ in range(5):
-                samples = get_prompt(self.memes, topics)
-                p = "\n".join([json.dumps(e) for e in samples[0:60]])
                 try:
-                    response = openai.Completion.create(
-                        engine="davinci-codex",
-                        prompt=p + "\n",
-                        temperature=1,
-                        max_tokens=100,
-                        top_p=1,
-                        frequency_penalty=0.7,
-                        presence_penalty=0,
-                        stop=["\n"],
-                    )
+                    # If fail many times, go for random topic
+                    new_topics, conversation_starter = generate_conversation_starter(self.memes, topics)
+                    # TODO: do we want a fallback prompt?
                 except Exception as e:
-                    print(e)
+                    self.logger.error(e)
                     continue
-                if response["choices"][0]["finish_reason"] == "length":
-                    continue
-                text = response["choices"][0]["text"]
-                try:
-                    text = json.loads(text)
-                    conversation_starter = text["content"]
-                except:
-                    continue
+
                 if self.fix_grammar:
                     input_text = "fix: { " + conversation_starter + " } </s>"
                     input_ids = self.tokenizer.encode(
@@ -111,7 +97,7 @@ class Ava(ConversationStarterServiceServicer):
                     conversation_starter = sentence
                 res = ConversationStarterResponse()
                 res.conversation_starter = conversation_starter
-                res.topics.extend(text["topics"] if "topics" in text else topics)
+                res.topics.extend(new_topics if new_topics else topics)
                 return res
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details("No suitable response found")
@@ -119,9 +105,10 @@ class Ava(ConversationStarterServiceServicer):
 
 
 async def serve(fix_grammar: bool = False) -> None:
+    logger = logging.getLogger("ava")
     server = grpc.aio.server()
 
-    add_ConversationStarterServiceServicer_to_server(Ava(fix_grammar), server)
+    add_ConversationStarterServiceServicer_to_server(Ava(fix_grammar, logger), server)
     SERVICE_NAMES = (
         DESCRIPTOR.services_by_name['ConversationStarterService'].full_name,
         reflection.SERVICE_NAME,
@@ -131,11 +118,11 @@ async def serve(fix_grammar: bool = False) -> None:
     assert PORT, "PORT environment variable must be set"
     listen_addr = f"[::]:{PORT}"
     server.add_insecure_port(listen_addr)
-    logging.info("Starting server on %s", listen_addr)
+    logger.info("Starting server on %s", listen_addr)
     await server.start()
 
     async def server_graceful_shutdown():
-        logging.info("Starting graceful shutdown...")
+        logger.info("Starting graceful shutdown...")
         # Shuts down the server with 0 seconds of grace period. During the
         # grace period, the server won't accept new connections and allow
         # existing RPCs to continue within the grace period.

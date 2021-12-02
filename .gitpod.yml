@@ -1,22 +1,31 @@
 tasks:
-    - name: Install dependencies
+    - name: Secrets & configurations
       command: |
         make install &
         make deps &
         docker pull redocly/redoc &
         docker pull swaggerapi/swagger-ui
-    - name: Secrets
-      command: |
         eval $(gp env -e)
         echo "$LANGAME_SVC_PROD" > svc.prod.json
         echo "$LANGAME_SVC_DEV" > svc.dev.json
+        echo "Setting up Kubernetes..."
         mkdir -p ~/.kube
         echo $KUBECONFIG | python3 -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print(yaml.safe_dump(j))' > ~/.kube/config
-    - name: Auth gcloud
-      command: |
-        gcloud auth login --no-launch-browser
-        gcloud projects list
-        echo "gcloud config set project [PROJECT_ID]"
+        export GOOGLE_APPLICATION_CREDENTIALS=./svc.dev.json
+        echo "Setting up Docker for Google Cloud..."
+        mkdir -p ~/.docker
+        cat >~/.docker/config.json <<EOL
+        {
+          "credHelpers": {
+            "gcr.io": "gcloud",
+            "us.gcr.io": "gcloud",
+            "eu.gcr.io": "gcloud",
+            "asia.gcr.io": "gcloud",
+            "staging-k8s.gcr.io": "gcloud",
+            "marketplace.gcr.io": "gcloud"
+          }
+        }
+        EOL
         
 # List the ports to expose. Learn more https://www.gitpod.io/docs/config-ports/
 image:
