@@ -26,4 +26,4 @@ ENV PORT 8080
 COPY ava ava
 
 ENTRYPOINT ["ava"]
-CMD ["--fix_grammar", "False"]
+CMD ["--fix_grammar", "False", "--profanity_thresold", "2"]

@@ -1,4 +1,3 @@
-
 # Native
 import os
 import sys
@@ -6,11 +5,19 @@ import json
 import asyncio
 import logging
 import grpc
+
 sys.path.append(os.path.dirname(__file__))
 
 # Google
-from v1.api_pb2 import ConversationStarterRequest, ConversationStarterResponse, DESCRIPTOR
-from v1.api_pb2_grpc import ConversationStarterServiceServicer, add_ConversationStarterServiceServicer_to_server
+from v1.api_pb2 import (
+    ConversationStarterRequest,
+    ConversationStarterResponse,
+    DESCRIPTOR,
+)
+from v1.api_pb2_grpc import (
+    ConversationStarterServiceServicer,
+    add_ConversationStarterServiceServicer_to_server,
+)
 from grpc_reflection.v1alpha import reflection
 from firebase_admin import credentials, firestore
 import firebase_admin
@@ -22,21 +29,35 @@ import openai
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 # Own libs
-from logic import generate_conversation_starter
+from logic import (
+    FinishReasonLengthException,
+    ProfaneException,
+    ProfanityTreshold,
+    generate_conversation_starter,
+)
 from strings import string_similarity
 
 # Coroutines to be invoked when the event loop is shutting down.
 _cleanup_coroutines = []
 
+
 class Ava(ConversationStarterServiceServicer):
-    def __init__(self, fix_grammar: bool = False, logger: logging.Logger = None):
+    def __init__(
+        self,
+        fix_grammar: bool = False,
+        profanity_thresold = ProfanityTreshold.tolerant,
+        logger: logging.Logger = None,
+    ):
         self.fix_grammar = fix_grammar
+        self.profanity_thresold = profanity_thresold
         self.logger = logger
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
             self.device = "cpu"
             self.tokenizer = T5Tokenizer.from_pretrained(model_name)
-            self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(self.device)
+            self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
+                self.device
+            )
         cred = credentials.Certificate("/etc/secrets/primary/svc.json")
         firebase_admin.initialize_app(cred)
         firestore_client: BaseClient = firestore.client()
@@ -46,71 +67,83 @@ class Ava(ConversationStarterServiceServicer):
 
         assert self.memes, "No memes in database"
 
-        self.logger.info(f"Fetched {len(self.memes)} memes")
+        self.logger.info(f"Fetched {len(self.memes)} memes, fix grammar: {self.fix_grammar}, profanity thresold: {self.profanity_thresold}")
 
     async def GetConversationStarter(
-        self,
-        request: ConversationStarterRequest,
-        context: grpc.aio.ServicerContext,
+        self, request: ConversationStarterRequest, context: grpc.aio.ServicerContext,
     ) -> ConversationStarterResponse:
-            if request is None or not request.topics:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details("No topics in request")
-                return ConversationStarterResponse()
-            topics = request.topics
-            conversation_starter = None
-            new_topics = None
-            for _ in range(5):
-                try:
-                    # If fail many times, go for random topic
-                    new_topics, conversation_starter = generate_conversation_starter(self.memes, topics)
-                    # TODO: do we want a fallback prompt?
-                except Exception as e:
-                    self.logger.error(e)
-                    continue
-
-                if self.fix_grammar:
-                    input_text = "fix: { " + conversation_starter + " } </s>"
-                    input_ids = self.tokenizer.encode(
-                        input_text,
-                        return_tensors="pt",
-                        max_length=256,
-                        truncation=True,
-                        add_special_tokens=True,
-                    ).to(self.device)
-
-                    outputs = self.model.generate(
-                        input_ids=input_ids,
-                        max_length=256,
-                        num_beams=4,
-                        repetition_penalty=1.0,
-                        length_penalty=1.0,
-                        early_stopping=True,
-                    )
-
-                    sentence = self.tokenizer.decode(
-                        outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True
-                    )
-
-                    if len(sentence) < 20 or string_similarity(conversation_starter, sentence) < 0.5:
-                        continue
-                    conversation_starter = sentence
-                res = ConversationStarterResponse()
-                res.conversation_starter = conversation_starter
-                res.topics.extend(new_topics if new_topics else topics)
-                return res
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details("No suitable response found")
+        if request is None or not request.topics:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("no-topics")
             return ConversationStarterResponse()
+        topics = request.topics
+        conversation_starter = None
+        new_topics = None
+        for _ in range(5):
+            try:
+                # If fail many times, go for random topic
+                new_topics, conversation_starter = generate_conversation_starter(
+                    self.memes, topics, profanity_thresold=self.profanity_thresold
+                )
+            except ProfaneException as e:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details("profane")
+                return ConversationStarterResponse()
+            except (FinishReasonLengthException, Exception) as e:
+                self.logger.error(e)
+                continue
+
+            if self.fix_grammar:
+                input_text = "fix: { " + conversation_starter + " } </s>"
+                input_ids = self.tokenizer.encode(
+                    input_text,
+                    return_tensors="pt",
+                    max_length=256,
+                    truncation=True,
+                    add_special_tokens=True,
+                ).to(self.device)
+
+                outputs = self.model.generate(
+                    input_ids=input_ids,
+                    max_length=256,
+                    num_beams=4,
+                    repetition_penalty=1.0,
+                    length_penalty=1.0,
+                    early_stopping=True,
+                )
+
+                sentence = self.tokenizer.decode(
+                    outputs[0],
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=True,
+                )
+
+                if (
+                    len(sentence) < 20
+                    or string_similarity(conversation_starter, sentence) < 0.5
+                ):
+                    continue
+                conversation_starter = sentence
+            res = ConversationStarterResponse()
+            res.conversation_starter = conversation_starter
+            res.topics.extend(new_topics if new_topics else topics)
+            return res
+        context.set_code(grpc.StatusCode.INTERNAL)
+        context.set_details("not-found")
+        return ConversationStarterResponse()
 
 
-async def serve(fix_grammar: bool = False) -> None:
+async def serve(
+    fix_grammar: bool = False, profanity_thresold: int = ProfanityTreshold.tolerant.value
+) -> None:
     logger = logging.getLogger("ava")
     server = grpc.aio.server()
 
-    add_ConversationStarterServiceServicer_to_server(Ava(fix_grammar, logger), server)
+    add_ConversationStarterServiceServicer_to_server(
+        Ava(fix_grammar, ProfanityTreshold(profanity_thresold), logger), server
+    )
     SERVICE_NAMES = (
-        DESCRIPTOR.services_by_name['ConversationStarterService'].full_name,
+        DESCRIPTOR.services_by_name["ConversationStarterService"].full_name,
         reflection.SERVICE_NAME,
     )
     reflection.enable_server_reflection(SERVICE_NAMES, server)

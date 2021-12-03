@@ -31,6 +31,7 @@ deploy_run: docker_build ## [Local development] deploy to GCP.
 		--memory=2Gi \
 		--use-http2 \
 		--max-instances=5
+	gcloud run services update-traffic --to-revisions=LATEST=100 conversation-starter
 
 create_svc_in_k8s: ## [Local development] create service account in Kubernetes.
 	kubectl create namespace ava
