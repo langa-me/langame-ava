@@ -13,7 +13,7 @@ CHANNEL_OPTIONS = [
 
 async def run(topics: List[str] = ["ice breaker"]) -> None:
     async with grpc.aio.insecure_channel(
-        target="localhost:8080", options=CHANNEL_OPTIONS
+        target="localhost:8081", options=CHANNEL_OPTIONS
     ) as channel:
         stub = ConversationStarterServiceStub(channel)
         request = ConversationStarterRequest()

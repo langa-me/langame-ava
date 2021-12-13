@@ -45,11 +45,13 @@ class Ava(ConversationStarterServiceServicer):
     def __init__(
         self,
         fix_grammar: bool = False,
-        profanity_thresold = ProfanityTreshold.tolerant,
+        profanity_thresold=ProfanityTreshold.tolerant,
+        no_openai: bool = False,
         logger: logging.Logger = None,
     ):
         self.fix_grammar = fix_grammar
         self.profanity_thresold = profanity_thresold
+        self.no_openai = no_openai
         self.logger = logger
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
@@ -67,7 +69,12 @@ class Ava(ConversationStarterServiceServicer):
 
         assert self.memes, "No memes in database"
 
-        self.logger.info(f"Fetched {len(self.memes)} memes, fix grammar: {self.fix_grammar}, profanity thresold: {self.profanity_thresold}")
+        self.logger.info(
+            f"Fetched {len(self.memes)} memes, "
+            + f"fix grammar: {self.fix_grammar}, "
+            + f"profanity thresold: {self.profanity_thresold}, "
+            + f"no openai: {self.no_openai}"
+        )
 
     async def GetConversationStarter(
         self, request: ConversationStarterRequest, context: grpc.aio.ServicerContext,
@@ -78,12 +85,15 @@ class Ava(ConversationStarterServiceServicer):
             return ConversationStarterResponse()
         topics = request.topics
         conversation_starter = None
-        new_topics = None
         for _ in range(5):
             try:
                 # If fail many times, go for random topic
-                new_topics, conversation_starter = generate_conversation_starter(
-                    self.memes, topics, profanity_thresold=self.profanity_thresold
+                conversation_starter = generate_conversation_starter(
+                    self.memes,
+                    topics,
+                    profanity_thresold=self.profanity_thresold,
+                    no_openai=self.no_openai,
+                    prompt_rows=5 if self.no_openai else 60,
                 )
             except ProfaneException as e:
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -126,7 +136,7 @@ class Ava(ConversationStarterServiceServicer):
                 conversation_starter = sentence
             res = ConversationStarterResponse()
             res.conversation_starter = conversation_starter
-            res.topics.extend(new_topics if new_topics else topics)
+            res.topics.extend(topics)
             return res
         context.set_code(grpc.StatusCode.INTERNAL)
         context.set_details("not-found")
@@ -134,13 +144,16 @@ class Ava(ConversationStarterServiceServicer):
 
 
 async def serve(
-    fix_grammar: bool = False, profanity_thresold: int = ProfanityTreshold.tolerant.value
+    fix_grammar: bool = False,
+    profanity_thresold: int = ProfanityTreshold.tolerant.value,
+    no_openai: bool = False,
 ) -> None:
     logger = logging.getLogger("ava")
     server = grpc.aio.server()
 
     add_ConversationStarterServiceServicer_to_server(
-        Ava(fix_grammar, ProfanityTreshold(profanity_thresold), logger), server
+        Ava(fix_grammar, ProfanityTreshold(profanity_thresold), no_openai, logger,),
+        server,
     )
     SERVICE_NAMES = (
         DESCRIPTOR.services_by_name["ConversationStarterService"].full_name,
@@ -173,6 +186,8 @@ def main():
 
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
+    # Check that HUGGINGFACE_TOKEN environment variable is set
+    assert os.environ.get("HUGGINGFACE_TOKEN"), "HUGGINGFACE_TOKEN not set"
 
     loop = asyncio.get_event_loop()
     try:

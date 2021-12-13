@@ -23,7 +23,18 @@ ENV PORT 8080
 # WORKDIR $APP_HOME
 # COPY --from=compile-image /ava.egg-info ava.egg-info
 
+ARG HUGGINGFACE_TOKEN=foo
+ARG USER=docker
+ARG UID=1000
+ARG GID=1000
+# default password for user
+ARG PW=docker
+# Option1: Using unencrypted password/ specifying password
+RUN useradd -m ${USER} --uid=${UID} && echo "${USER}:${PW}" | chpasswd
+# Setup default user, when enter docker container
+USER ${UID}:${GID}
+WORKDIR /home/${USER}
+RUN python -c "import os; from transformers import pipeline, set_seed, TextGenerationPipeline; pipeline('text-generation', model='Langame/gpt2-starter', tokenizer='gpt2', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
 COPY ava ava
-
 ENTRYPOINT ["ava"]
-CMD ["--fix_grammar", "False", "--profanity_thresold", "2"]
+CMD ["--fix_grammar", "False", "--profanity_thresold", "2", "--no_openai", "True"]

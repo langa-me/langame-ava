@@ -3,6 +3,9 @@
 #   key: foo
 #   org: bar
 
+# huggingface:
+#   token: baz
+
 replicaCount: 1
 
 image:
@@ -62,7 +65,7 @@ storage:
   # Useful if you want to avoid downloading models every times
   size: 20Gi
   # Huggingface stores its data here
-  path: ~/.cache
+  path: /home/docker/.cache/huggingface
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

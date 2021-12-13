@@ -1,46 +1,79 @@
-REGISTRY ?= gcr.io/langame-dev/conversation-starter
-VERSION ?= latest-dev
+REGISTRY ?= gcr.io/$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)/conversation-starter
+VERSION ?= latest
 GATEWAY_FLAGS := -I ./proto -I include/googleapis -I include/grpc-gateway
 OPENAI_KEY ?= foo
 OPENAI_ORG ?= bar
-SVC_DEV_PATH ?= "../svc.dev.json"
-SVC_PROD_PATH ?= "../svc.prod.json"
+HUGGINGFACE_TOKEN ?= baz
+SVC_DEV_PATH ?= "./svc.dev.json"
+SVC_PROD_PATH ?= "./svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
 GCP_RUN_SVC:=$(shell gcloud iam service-accounts list --filter="Default compute service account" --format 'value(email)' 2>/dev/null)
 
-docker_build: ## TODO
-	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile
+gcloud_set_prod: ## Set the GCP project to prod
+	gcloud config set project langame-86ac4
 
-docker_run: ## TODO
+gcloud_set_dev: ## Set the GCP project to dev
+	gcloud config set project langame-dev
+
+docker_build: ## [Local development] build the docker image
+	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+
+docker_run: ## [Local development] run the docker container
+	# "don't forget to eval $(cat .env | sed 's/^/export /')"
 	docker run -p 8081:8080 \
 		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
-		-v $(shell pwd)/data:/.cache \
 		-e OPENAI_KEY=${OPENAI_KEY} \
 		-e OPENAI_ORG=${OPENAI_ORG} \
-		${REGISTRY}:${VERSION} --fix_grammar False
+		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
+		${REGISTRY}:${VERSION} --fix_grammar False --no_openai True
 
 deploy_run: docker_build ## [Local development] deploy to GCP.
+	echo "Asssuming using secret version 1"
 	docker push ${REGISTRY}:${VERSION}
 	gcloud run deploy conversation-starter \
+		--project ${GCLOUD_PROJECT} \
 		--image ${REGISTRY}:${VERSION} \
 		--region us-central1 \
 		--set-secrets "/etc/secrets/primary/svc.json=service_account_dev:1" \
 		--set-secrets "OPENAI_KEY=openai_key:1" \
 		--set-secrets "OPENAI_ORG=openai_org:1" \
+		--set-secrets "HUGGINGFACE_TOKEN=huggingface_token:1" \
 		--allow-unauthenticated \
-		--memory=2Gi \
+		--memory=4Gi \
+		--cpu=2 \
 		--use-http2 \
 		--max-instances=5
-	gcloud run services update-traffic --to-revisions=LATEST=100 conversation-starter
+	gcloud run services update-traffic --to-revisions=LATEST=100 conversation-starter \
+		--region us-central1 \
+		--project ${GCLOUD_PROJECT}
 
-create_svc_in_k8s: ## [Local development] create service account in Kubernetes.
-	kubectl create namespace ava
-	kubectl create secret generic google-cloud-service-account --from-file=svc.json=./svc.dev.json -n ava
+k8s_create_svc: ## [Local development] create service account in Kubernetes.
+	# gcloud iam service-accounts create pull-image-gcr \
+	# 	--description="pull image gcr from k8s" \
+	# 	--display-name="pull-image-gcr" \
+	# 	--project=${GCLOUD_PROJECT}
+	# gcloud iam service-accounts add-iam-policy-binding $(shell gcloud iam service-accounts list --filter="pull-image-gcr" --format 'value(email)') \
+	# 	--member user:louis.beaumont@gmail.com \
+	# 	--project=${GCLOUD_PROJECT} \
+	# 	--role roles/viewer
+	# Download as key
+	# gcloud iam service-accounts keys create ./pull-image-gcr.json \
+	# 	--iam-account=$(shell gcloud iam service-accounts list --filter="pull-image-gcr" --format 'value(email)') \
+	# 	--project=${GCLOUD_PROJECT}
+	kubectl create secret docker-registry langame-dev-registry \
+		--docker-server=gcr.io \
+		--docker-username=_json_key \
+		--docker-email=louis.beaumont@gmail.com \
+		--docker-password='$(shell cat pull-image-gcr.json)' \
+		-n ava
+	# kubectl patch serviceaccount default \
+	# 	-p '{"imagePullSecrets": [{"name": "langame-dev-registry"}]}'
 
-deploy_k8s: ## [Local development] deploy to Kubernetes.
+
+k8s_deploy: ## [Local development] deploy to Kubernetes.
 	helm install ava helm -f helm/values-dev.yaml -n ava --create-namespace
 
-undeploy_k8s: ## [Local development] undeploy from Kubernetes.
+k8s_undeploy: ## [Local development] undeploy from Kubernetes.
 	helm uninstall ava -n ava
 
 redoc: ## [Local development] redoc.
@@ -106,17 +139,20 @@ install: ## [Local development] Upgrade pip, install requirements, install packa
 
 create_secret: ##[Local development] create secret in GCP.
 	
-	printf ${OPENAI_KEY} | gcloud secrets create openai_key --data-file=-
-	gcloud beta secrets add-iam-policy-binding openai_key --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+	# printf ${OPENAI_KEY} | gcloud secrets create openai_key --project ${GCLOUD_PROJECT} --data-file=-
+	# gcloud beta secrets add-iam-policy-binding openai_key --project ${GCLOUD_PROJECT} --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
-	printf ${OPENAI_ORG} | gcloud secrets create openai_org --data-file=-
-	gcloud beta secrets add-iam-policy-binding openai_org --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+	# printf ${OPENAI_ORG} | gcloud secrets create openai_org --project ${GCLOUD_PROJECT} --data-file=-
+	# gcloud beta secrets add-iam-policy-binding openai_org --project ${GCLOUD_PROJECT} --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 	
-	gcloud secrets create service_account_dev --data-file=${SVC_DEV_PATH}
-	gcloud beta secrets add-iam-policy-binding service_account_dev --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+	printf ${HUGGINGFACE_TOKEN} | gcloud secrets create huggingface_token --project ${GCLOUD_PROJECT} --data-file=-
+	gcloud beta secrets add-iam-policy-binding huggingface_token --project ${GCLOUD_PROJECT} --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
-	gcloud secrets create service_account_prod --data-file=${SVC_PROD_PATH}
-	gcloud beta secrets add-iam-policy-binding service_account_prod --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+	# gcloud secrets create service_account_dev --project ${GCLOUD_PROJECT} --data-file=${SVC_DEV_PATH}
+	# gcloud beta secrets add-iam-policy-binding service_account_dev --project ${GCLOUD_PROJECT} --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
+
+	# gcloud secrets create service_account_prod --project ${GCLOUD_PROJECT} --data-file=${SVC_PROD_PATH}
+	# gcloud beta secrets add-iam-policy-binding service_account_prod --project ${GCLOUD_PROJECT} --member="serviceAccount:${GCP_RUN_SVC}" --role=roles/secretmanager.secretAccessor
 
 .PHONY: help
 

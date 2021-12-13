@@ -3,31 +3,32 @@ from typing import Any, List, Tuple
 from arrays import intersection
 import openai
 from enum import Enum
+import os
+
 
 class ProfanityTreshold(Enum):
     open = 1
     tolerant = 2
     strict = 3
 
+
 class FinishReasonLengthException(Exception):
     pass
+
 
 class ProfaneException(Exception):
     pass
 
-def generate_conversation_starter(
-    conversation_starter_examples: List[Any], 
-    topics: List[str], 
-    prompt_rows: int = 60,
-    profanity_thresold: ProfanityTreshold = ProfanityTreshold.tolerant,
-) -> Tuple[List[str], str]:
+
+def build_prompt(
+    conversation_starter_examples: List[Any], topics: List[str], prompt_rows: int = 60,
+) -> str:
     """
-    Build a prompt for the OpenAI API based on a list of conversation starters.
+    Build a prompt for a GPT-like model based on a list of conversation starters.
     :param conversation_starter_examples: The list of conversation starters.
     :param topics: The list of topics.
     :param prompt_rows: The number of rows in the prompt.
-    :param check_profanity: Strictly above that threshold is considered profane and None is returned.
-    :return: topics, conversation_starter
+    :return: prompt
     """
     random_conversation_starters = choices(conversation_starter_examples, k=500)
     found_conversation_starters = [
@@ -36,19 +37,21 @@ def generate_conversation_starter(
         if len(intersection(e[1]["topics"], topics)) > 0
     ]
     prompt = (
-        ("\n".join(
-            [
-                f"{','.join(e[1]['topics'])} ### {e[1]['content']}"
-                for e in random_conversation_starters
-            ][0:prompt_rows]
+        (
+            "\n".join(
+                [
+                    f"{','.join(e[1]['topics'])} ### {e[1]['content']}"
+                    for e in random_conversation_starters
+                ][0:prompt_rows]
+            )
         )
-        + "\n"
-        + ",".join(topics)
-        + " ###")
         if not found_conversation_starters
-        else "\n".join(found_conversation_starters[0:prompt_rows]) + "\n"
+        else "\n".join(found_conversation_starters[0:prompt_rows])
     )
-    # TODO: content filter, classification etc
+    return prompt + "\n" + ",".join(topics) + " ###"
+
+
+def openai_completion(prompt: str):
     response = openai.Completion.create(
         engine="davinci-codex",
         prompt=prompt,
@@ -59,23 +62,65 @@ def generate_conversation_starter(
         presence_penalty=0,
         stop=["\n"],
     )
-    if response["choices"][0]["finish_reason"] == "length" or not response["choices"][0]["text"]:
+    if (
+        response["choices"][0]["finish_reason"] == "length"
+        or not response["choices"][0]["text"]
+    ):
         raise FinishReasonLengthException()
-    text = response["choices"][0]["text"]
-    new_topics = []
-    if found_conversation_starters:
-        splitted = text.split("###")
-        new_topics = splitted[0].strip().split(",")
-        conversation_starter = splitted[1].strip()
-    else:
-        new_topics = topics
-        conversation_starter = text.strip()
+    return response["choices"][0]["text"]
+
+
+def custom_completion(prompt: str):
+    # TODO: eventually optional hf inference api
+    from transformers import pipeline, set_seed, TextGenerationPipeline
+    from random import randint
+
+    generator: TextGenerationPipeline = pipeline(
+        "text-generation",
+        model="Langame/gpt2-starter",
+        tokenizer="gpt2",
+        use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"),
+    )
+    set_seed(randint(0, 100))
+    gen = generator(
+        prompt,
+        max_length=(len(prompt) / 5) + 100,
+        num_return_sequences=1,
+        return_text=False,
+        return_full_text=False,
+    )[0]
+    completions = gen["generated_text"].split("\n")[0]
+    return completions
+
+
+def generate_conversation_starter(
+    conversation_starter_examples: List[Any],
+    topics: List[str],
+    prompt_rows: int = 60,
+    profanity_thresold: ProfanityTreshold = ProfanityTreshold.tolerant,
+    no_openai: bool = False,
+) -> str:
+    """
+    Build a prompt for the OpenAI API based on a list of conversation starters.
+    :param conversation_starter_examples: The list of conversation starters.
+    :param topics: The list of topics.
+    :param prompt_rows: The number of rows in the prompt.
+    :param check_profanity: Strictly above that threshold is considered profane and None is returned.
+    :param no_openai: If True, the OpenAI API is not used, rather a local model.
+    :return: conversation_starter
+    """
+    prompt = build_prompt(conversation_starter_examples, topics, prompt_rows,)
+    text = custom_completion(prompt) if no_openai else openai_completion(prompt)
+    conversation_starter = text.strip()
 
     if profanity_thresold.value > 1:
-        # We check the whole output text, in the future should probably check topics and text in parallel and aggregate
+        # We check the whole output text,
+        # in the future should probably check
+        # topics and text in parallel and aggregate
         if is_profane(text) > (3 - profanity_thresold.value):
             raise ProfaneException()
-    return new_topics, conversation_starter
+    return conversation_starter
+
 
 def is_profane(text: str, toxic_threshold: float = -0.355) -> int:
     """
@@ -86,14 +131,14 @@ def is_profane(text: str, toxic_threshold: float = -0.355) -> int:
     :return: True if text contains profanity, False otherwise.
     """
     response = openai.Completion.create(
-      engine="content-filter-alpha",
-      prompt = "<|endoftext|>"+text+"\n--\nLabel:",
-      temperature=0,
-      max_tokens=1,
-      top_p=1,
-      frequency_penalty=0,
-      presence_penalty=0,
-      logprobs=10
+        engine="content-filter-alpha",
+        prompt="<|endoftext|>" + text + "\n--\nLabel:",
+        temperature=0,
+        max_tokens=1,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0,
+        logprobs=10,
     )
     output_label = response["choices"][0]["text"]
 
