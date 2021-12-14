@@ -12,7 +12,7 @@ import firebase_admin
 import unittest
 import openai
 import os
-
+import time
 
 class TestLogic(unittest.TestCase):
     def setUp(self) -> None:
@@ -100,5 +100,10 @@ class TestLogic(unittest.TestCase):
         assert response is not None
 
     def test_custom_completion(self):
-        response = custom_completion("The color of the white horse of Henry IV is")
+        # count elapsed time
+        start = time.time()
+        response = custom_completion("The color of the white horse of Henry IV is", deterministic=True)
         assert response is not None
+        elapsed_seconds  = str(time.time() - start)
+        print(f"Elapsed seconds: {elapsed_seconds}")
+        print(response)

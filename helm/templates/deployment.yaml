@@ -33,6 +33,9 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--no_openai"
+            - "{{ .Values.noOpenAI }}"
           env:
             - name: OPENAI_KEY
               value: "{{ required "You need to set an OpenAI key" .Values.openai.key }}"
@@ -40,23 +43,12 @@ spec:
               value: "{{ required "You need to set an OpenAI organization" .Values.openai.org }}"
             - name: HUGGINGFACE_TOKEN
               value: "{{ required "You need to set an Huggingface token" .Values.huggingface.token }}"
-          ports:
-            - name: http
-              containerPort: 80
-              protocol: TCP
           volumeMounts:
             - name: google-cloud-service-account
               mountPath: /etc/secrets/primary/svc.json
-            - name: data
-              mountPath: {{ .Values.storage.path }}
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
+              subPath: svc.json
+            # - name: data
+              # mountPath: {{ .Values.storage.path }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

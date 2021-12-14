@@ -1,27 +1,19 @@
 # Native
 import os
-import sys
-import json
-import asyncio
 import logging
-import grpc
-
-sys.path.append(os.path.dirname(__file__))
+import threading
+import signal
+from typing import List
 
 # Google
 from v1.api_pb2 import (
     ConversationStarterRequest,
     ConversationStarterResponse,
-    DESCRIPTOR,
 )
-from v1.api_pb2_grpc import (
-    ConversationStarterServiceServicer,
-    add_ConversationStarterServiceServicer_to_server,
-)
-from grpc_reflection.v1alpha import reflection
+
 from firebase_admin import credentials, firestore
 import firebase_admin
-from google.cloud.firestore_v1.base_client import BaseClient
+from google.cloud.firestore import Client, DocumentSnapshot
 import fire
 
 # AI
@@ -37,16 +29,14 @@ from logic import (
 )
 from strings import string_similarity
 
-# Coroutines to be invoked when the event loop is shutting down.
-_cleanup_coroutines = []
 
-
-class Ava(ConversationStarterServiceServicer):
+class Ava:
     def __init__(
         self,
         fix_grammar: bool = False,
         profanity_thresold=ProfanityTreshold.tolerant,
         no_openai: bool = False,
+        service_account_key_path: str = "/etc/secrets/primary/svc.json",
         logger: logging.Logger = None,
     ):
         self.fix_grammar = fix_grammar
@@ -60,11 +50,11 @@ class Ava(ConversationStarterServiceServicer):
             self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
                 self.device
             )
-        cred = credentials.Certificate("/etc/secrets/primary/svc.json")
+        cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
-        firestore_client: BaseClient = firestore.client()
+        self.firestore_client: Client = firestore.client()
         self.memes = []
-        for e in firestore_client.collection("memes").stream():
+        for e in self.firestore_client.collection("memes").stream():
             self.memes.append((e.id, e.to_dict()))
 
         assert self.memes, "No memes in database"
@@ -75,15 +65,59 @@ class Ava(ConversationStarterServiceServicer):
             + f"profanity thresold: {self.profanity_thresold}, "
             + f"no openai: {self.no_openai}"
         )
+        self.stopped = False
 
-    async def GetConversationStarter(
-        self, request: ConversationStarterRequest, context: grpc.aio.ServicerContext,
-    ) -> ConversationStarterResponse:
-        if request is None or not request.topics:
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details("no-topics")
-            return ConversationStarterResponse()
-        topics = request.topics
+    def run(self):
+        self.logger.info("Starting server")
+        # Create an Event for notifying main thread.
+        self.callback_done = threading.Event()
+        doc_ref = self.firestore_client.collection("tests").where(
+            "state", "==", "to-process"
+        )
+        self.doc_watch = doc_ref.on_snapshot(self.on_snapshot)
+        while not self.stopped:
+            pass
+
+    def shutdown(self, signal, frame):
+        self.stopped = True
+        # self.doc_watch()
+        self.firestore_client.close()
+        self.callback_done.set()
+        self.logger.info("Shutting down")
+
+    def on_snapshot(self, doc_snapshot: List[DocumentSnapshot], changes, read_time):
+        batch = self.firestore_client.batch()
+        for doc in doc_snapshot:
+            self.logger.info(f"Received document snapshot: {doc.id}, {doc.to_dict()}")
+            if not doc.exists or doc.to_dict().get("topics", None) is None:
+                self.logger.info(f"Document {doc.id} does not exist or has no topics")
+                batch.update(
+                    doc.reference, {"state": "error", "user_message": "no-topics"}
+                )
+                batch.commit()
+                continue
+            batch.update(doc.reference, {"state": "processing"})
+            batch.commit()
+            try:
+                conversation_starter = self.generate(doc.get("topics"))
+            except ProfaneException as e:
+                self.logger.error(f"Profane: {e}")
+                batch.update(
+                    doc.reference, {"state": "error", "user_message": "profane"}
+                )
+                continue
+            except Exception as e:
+                self.logger.error(f"Error: {e}")
+                batch.update(doc.reference, {"state": "error", "user_message": str(e)})
+                continue
+            batch.update(
+                doc.reference,
+                {"state": "processed", "conversation_starter": conversation_starter,},
+            )
+        batch.commit()
+        self.callback_done.set()
+
+    def generate(self, topics: List[str],) -> str:
         conversation_starter = None
         for _ in range(5):
             try:
@@ -95,11 +129,7 @@ class Ava(ConversationStarterServiceServicer):
                     no_openai=self.no_openai,
                     prompt_rows=5 if self.no_openai else 60,
                 )
-            except ProfaneException as e:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details("profane")
-                return ConversationStarterResponse()
-            except (FinishReasonLengthException, Exception) as e:
+            except FinishReasonLengthException as e:
                 self.logger.error(e)
                 continue
 
@@ -134,48 +164,30 @@ class Ava(ConversationStarterServiceServicer):
                 ):
                     continue
                 conversation_starter = sentence
-            res = ConversationStarterResponse()
-            res.conversation_starter = conversation_starter
-            res.topics.extend(topics)
-            return res
-        context.set_code(grpc.StatusCode.INTERNAL)
-        context.set_details("not-found")
-        return ConversationStarterResponse()
+            return conversation_starter
+        raise Exception("not-found")
 
 
-async def serve(
+def serve(
     fix_grammar: bool = False,
     profanity_thresold: int = ProfanityTreshold.tolerant.value,
     no_openai: bool = False,
+    service_account_key_path: str = "/etc/secrets/primary/svc.json",
 ) -> None:
     logger = logging.getLogger("ava")
-    server = grpc.aio.server()
 
-    add_ConversationStarterServiceServicer_to_server(
-        Ava(fix_grammar, ProfanityTreshold(profanity_thresold), no_openai, logger,),
-        server,
+    ava = Ava(
+        fix_grammar,
+        ProfanityTreshold(profanity_thresold),
+        no_openai,
+        service_account_key_path,
+        logger,
     )
-    SERVICE_NAMES = (
-        DESCRIPTOR.services_by_name["ConversationStarterService"].full_name,
-        reflection.SERVICE_NAME,
-    )
-    reflection.enable_server_reflection(SERVICE_NAMES, server)
-    PORT = os.environ["PORT"]
-    assert PORT, "PORT environment variable must be set"
-    listen_addr = f"[::]:{PORT}"
-    server.add_insecure_port(listen_addr)
-    logger.info("Starting server on %s", listen_addr)
-    await server.start()
 
-    async def server_graceful_shutdown():
-        logger.info("Starting graceful shutdown...")
-        # Shuts down the server with 0 seconds of grace period. During the
-        # grace period, the server won't accept new connections and allow
-        # existing RPCs to continue within the grace period.
-        await server.stop(5)
-
-    _cleanup_coroutines.append(server_graceful_shutdown())
-    await server.wait_for_termination()
+    # Setup signal handler
+    signal.signal(signal.SIGINT, ava.shutdown)
+    signal.signal(signal.SIGTERM, ava.shutdown)
+    ava.run()
 
 
 def main():
@@ -189,12 +201,7 @@ def main():
     # Check that HUGGINGFACE_TOKEN environment variable is set
     assert os.environ.get("HUGGINGFACE_TOKEN"), "HUGGINGFACE_TOKEN not set"
 
-    loop = asyncio.get_event_loop()
-    try:
-        fire.Fire(serve)
-    finally:
-        loop.run_until_complete(*_cleanup_coroutines)
-        loop.close()
+    fire.Fire(serve)
 
 
 if __name__ == "__main__":

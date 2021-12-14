@@ -70,7 +70,7 @@ def openai_completion(prompt: str):
     return response["choices"][0]["text"]
 
 
-def custom_completion(prompt: str):
+def custom_completion(prompt: str, deterministic: bool = False) -> str:
     # TODO: eventually optional hf inference api
     from transformers import pipeline, set_seed, TextGenerationPipeline
     from random import randint
@@ -81,16 +81,35 @@ def custom_completion(prompt: str):
         tokenizer="gpt2",
         use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"),
     )
-    set_seed(randint(0, 100))
+    set_seed(42 if deterministic else randint(0, 100))
     gen = generator(
         prompt,
         max_length=(len(prompt) / 5) + 100,
         num_return_sequences=1,
         return_text=False,
         return_full_text=False,
+        do_sample=True,
+        top_k=50, 
+        top_p=0.95, 
     )[0]
     completions = gen["generated_text"].split("\n")[0]
     return completions
+
+def hf_api_completion(prompt: str) -> str:
+    import json
+
+    import requests
+
+    API_URL = "https://api-inference.huggingface.co/models/gpt2"
+    headers = {"Authorization": f"Bearer {os.environ.get('HUGGINGFACE_KEY')}"}
+    # TODO
+    def query(payload):
+        data = json.dumps(payload)
+        response = requests.request("POST", API_URL, headers=headers, data=data)
+        return json.loads(response.content.decode("utf-8"))
+
+    data = query(prompt)
+    return data
 
 
 def generate_conversation_starter(
