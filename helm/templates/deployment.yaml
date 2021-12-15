@@ -35,7 +35,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - "--fix_grammar"
-            - "{{ .Values.avaConfig.fixGrammar | default "false" | lower }}"
+            - "{{ ternary "True" "False" (eq .Values.avaConfig.fixGrammar true)}}"
             - "--profanity_threshold"
             - "{{ .Values.avaConfig.profanityThreshold | default "tolerant" }}"
             - "--completion_type"

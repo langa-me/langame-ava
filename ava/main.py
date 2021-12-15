@@ -4,6 +4,7 @@ import logging
 import threading
 import signal
 from typing import List
+from random import choice
 
 # Google
 from firebase_admin import credentials, firestore
@@ -26,7 +27,10 @@ from langame.completion import (
     CompletionType,
 )
 from langame.strings import string_similarity
-
+from ava.messages import (
+    FAILING_MESSAGES,
+    PROFANITY_MESSAGES,
+)
 
 class Ava:
     def __init__(
@@ -100,13 +104,19 @@ class Ava:
                 conversation_starter = self.generate(doc.get("topics"))
             except ProfaneException as e:
                 self.logger.error(f"Profane: {e}")
+                user_message = choice(PROFANITY_MESSAGES)
+                topics_as_string = ",".join(doc.get("topics"))
+                user_message = user_message.replace(
+                    "[TOPICS]", f"\"{topics_as_string}\""
+                )
                 batch.update(
-                    doc.reference, {"state": "error", "user_message": "profane"}
+                    doc.reference, {"state": "error", "user_message": user_message}
                 )
                 continue
             except Exception as e:
                 self.logger.error(f"Error: {e}")
-                batch.update(doc.reference, {"state": "error", "user_message": str(e)})
+                user_message = choice(FAILING_MESSAGES)
+                batch.update(doc.reference, {"state": "error", "user_message": user_message, "developer_message": str(e)})
                 continue
             batch.update(
                 doc.reference,

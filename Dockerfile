@@ -24,7 +24,6 @@ COPY ava ./ava/
 COPY ./setup.py ./setup.py
 COPY ./third_party/langame-worker/langame/ ../langame-worker/langame/
 COPY ./third_party/langame-worker/setup.py ../langame-worker/setup.py
-RUN ls -l ../langame-worker/langame
 RUN pip install -e .
 
 # FROM python:3.8-slim AS build-image

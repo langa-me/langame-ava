@@ -61,7 +61,7 @@ k8s_create_svc: ## [Local development] create service account in Kubernetes.
 
 k8s_deploy: ## [Local development] deploy to Kubernetes.
 # 	hack unless we can let k3d access gcr
-	# k3d image import ${REGISTRY}:${VERSION} -c basic
+	k3d image import ${REGISTRY}:${VERSION} -c basic
 	helm install ava helm -f helm/values-dev.yaml -n ava --create-namespace
 
 k8s_undeploy: ## [Local development] undeploy from Kubernetes.

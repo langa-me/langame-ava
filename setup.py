@@ -18,6 +18,7 @@ if __name__ == "__main__":
             "fire",
             "torch",
             "transformers",
+            "sentencepiece",
             f"langame @ file://localhost/{path_to_langame}#egg=langame"
         ],
         classifiers=[
