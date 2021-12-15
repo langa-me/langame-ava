@@ -1,42 +1,5 @@
 syntax = "proto3";
 
 package ava;
-option go_package = "github.com/langa-me/ava/v1";
 
-import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
-
-option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
-    info: {
-        title: "Ava";
-        version: "1.0";
-        contact: {
-            name: "langame";
-            url: "https://langa.me";
-            email: "contact@langa.me";
-        };
-    };
-
-    schemes: HTTP;
-    schemes: HTTPS;
-    consumes: "application/json";
-    produces: "application/json";
-};
-
-message ConversationStarterRequest {
-    repeated string topics = 1;
-}
- 
-message ConversationStarterResponse {
-    string conversation_starter = 1; 
-    repeated string topics = 2;
-}
- 
-service ConversationStarterService {
-    rpc GetConversationStarter(ConversationStarterRequest) returns (ConversationStarterResponse) {
-        option (google.api.http) = {
-            post: "/v1/api/conversation/starter"
-            body: "*"
-        };
-    }
-}
+// TODO: unused

@@ -6,11 +6,6 @@ import signal
 from typing import List
 
 # Google
-from v1.api_pb2 import (
-    ConversationStarterRequest,
-    ConversationStarterResponse,
-)
-
 from firebase_admin import credentials, firestore
 import firebase_admin
 from google.cloud.firestore import Client, DocumentSnapshot
@@ -21,27 +16,30 @@ import openai
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 # Own libs
-from logic import (
-    FinishReasonLengthException,
+from langame.logic import generate_conversation_starter
+from langame.profanity import (
     ProfaneException,
-    ProfanityTreshold,
-    generate_conversation_starter,
+    ProfanityThreshold,
 )
-from strings import string_similarity
+from langame.completion import (
+    FinishReasonLengthException,
+    CompletionType,
+)
+from langame.strings import string_similarity
 
 
 class Ava:
     def __init__(
         self,
         fix_grammar: bool = False,
-        profanity_thresold=ProfanityTreshold.tolerant,
-        no_openai: bool = False,
+        profanity_thresold: ProfanityThreshold = ProfanityThreshold.tolerant,
         service_account_key_path: str = "/etc/secrets/primary/svc.json",
+        completion_type: CompletionType = CompletionType.huggingface_api,
         logger: logging.Logger = None,
     ):
         self.fix_grammar = fix_grammar
         self.profanity_thresold = profanity_thresold
-        self.no_openai = no_openai
+        self.completion_type = completion_type
         self.logger = logger
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
@@ -63,7 +61,7 @@ class Ava:
             f"Fetched {len(self.memes)} memes, "
             + f"fix grammar: {self.fix_grammar}, "
             + f"profanity thresold: {self.profanity_thresold}, "
-            + f"no openai: {self.no_openai}"
+            + f"completion type: {self.completion_type}"
         )
         self.stopped = False
 
@@ -121,13 +119,19 @@ class Ava:
         conversation_starter = None
         for _ in range(5):
             try:
+                self.logger.info(
+                    f"Generating conversation starter for {topics}"
+                    + f" using {self.completion_type} with profanity thresold {self.profanity_thresold}"
+                )
                 # If fail many times, go for random topic
                 conversation_starter = generate_conversation_starter(
                     self.memes,
                     topics,
                     profanity_thresold=self.profanity_thresold,
-                    no_openai=self.no_openai,
-                    prompt_rows=5 if self.no_openai else 60,
+                    completion_type=self.completion_type,
+                    prompt_rows=60
+                    if self.completion_type == CompletionType.openai_api
+                    else 5,
                 )
             except FinishReasonLengthException as e:
                 self.logger.error(e)
@@ -170,17 +174,22 @@ class Ava:
 
 def serve(
     fix_grammar: bool = False,
-    profanity_thresold: int = ProfanityTreshold.tolerant.value,
-    no_openai: bool = False,
+    profanity_thresold: str = "tolerant",
     service_account_key_path: str = "/etc/secrets/primary/svc.json",
+    completion_type: str = "huggingface_api",
 ) -> None:
     logger = logging.getLogger("ava")
 
+    # Check that profanity_thresold is a ProfanityThreshold
+    assert profanity_thresold in ProfanityThreshold.__members__.keys()
+    # Check that completion_type is a CompletionType
+    assert completion_type in CompletionType.__members__.keys()
+
     ava = Ava(
         fix_grammar,
-        ProfanityTreshold(profanity_thresold),
-        no_openai,
+        ProfanityThreshold[profanity_thresold],
         service_account_key_path,
+        CompletionType[completion_type],
         logger,
     )
 
@@ -198,8 +207,8 @@ def main():
 
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
-    # Check that HUGGINGFACE_TOKEN environment variable is set
     assert os.environ.get("HUGGINGFACE_TOKEN"), "HUGGINGFACE_TOKEN not set"
+    assert os.environ.get("HUGGINGFACE_KEY"), "HUGGINGFACE_KEY not set"
 
     fire.Fire(serve)
 

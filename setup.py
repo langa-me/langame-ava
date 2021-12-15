@@ -1,4 +1,8 @@
 from setuptools import setup, find_packages
+import os
+
+# Langame should be a sibling directory to this project
+path_to_langame = f"{os.getcwd()}/../langame-worker"
 
 if __name__ == "__main__":
     setup(
@@ -11,20 +15,10 @@ if __name__ == "__main__":
         author_email="louis.beaumont@langa.me",
         url="https://github.com/langa-me/langame-ava",
         install_requires=[
-            "grpcio==1.40.0",
-            "grpcio-tools==1.40.0",
-            "grpc-gateway-protoc-gen-openapiv2",
-            "gcloud",
-            "google-api-python-client",
-            "protobuf",
-            "grpcio-reflection",
-            "grpcio-status",
-            "openai",
-            "transformers",
-            "firebase_admin",
-            "sentencepiece",
+            "fire",
             "torch",
-            "fire"
+            "transformers",
+            f"langame @ file://localhost/{path_to_langame}#egg=langame"
         ],
         classifiers=[
             "Development Status :: 4 - Beta",

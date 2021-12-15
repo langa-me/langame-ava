@@ -1,12 +1,11 @@
 REGISTRY ?= gcr.io/$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)/conversation-starter
 VERSION ?= latest
-OPENAI_KEY ?= foo
-OPENAI_ORG ?= bar
-HUGGINGFACE_TOKEN ?= baz
+OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
+OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
+HUGGINGFACE_TOKEN ?= $(shell cat .env | grep HUGGINGFACE_TOKEN | cut -d '=' -f 2)
 SVC_DEV_PATH ?= "./svc.dev.json"
 SVC_PROD_PATH ?= "./svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
-
 gcloud_set_prod: ## Set the GCP project to prod
 	gcloud config set project langame-86ac4
 
@@ -14,10 +13,16 @@ gcloud_set_dev: ## Set the GCP project to dev
 	gcloud config set project langame-dev
 
 run: ## [Local development] run the main entrypoint
-	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json --no_openai="True"
+	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json \
+		--fix_grammar False \
+		--profanity_thresold tolerant \
+		--completion_type huggingface_api
 
 docker_build: ## [Local development] build the docker image
+	mkdir -p third_party
+	cp -r ../langame-worker/{langame,setup.py} third_party/
 	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+	rm -rf third_party
 
 docker_run: docker_build ## [Local development] run the docker container
 	# "don't forget to eval $(cat .env | sed 's/^/export /')"
@@ -26,7 +31,7 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e OPENAI_KEY=${OPENAI_KEY} \
 		-e OPENAI_ORG=${OPENAI_ORG} \
 		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
-		${REGISTRY}:${VERSION} --fix_grammar False --no_openai False
+		${REGISTRY}:${VERSION} --fix_grammar False --profanity_thresold tolerant --completion_type huggingface_api
 
 k8s_create_svc: ## [Local development] create service account in Kubernetes.
 	# gcloud iam service-accounts create pull-image-gcr \

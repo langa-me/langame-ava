@@ -1,4 +1,6 @@
-grpc_tools
+grpcio==1.40.0
+grpcio-tools==1.40.0
+protobuf
 mock==4.0.3
 black==19.10b0
 mypy==0.910
