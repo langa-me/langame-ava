@@ -3,6 +3,7 @@ VERSION ?= latest
 OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
 OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
 HUGGINGFACE_TOKEN ?= $(shell cat .env | grep HUGGINGFACE_TOKEN | cut -d '=' -f 2)
+HUGGINGFACE_KEY ?= $(shell cat .env | grep HUGGINGFACE_KEY | cut -d '=' -f 2)
 SVC_DEV_PATH ?= "./svc.dev.json"
 SVC_PROD_PATH ?= "./svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
@@ -19,8 +20,9 @@ run: ## [Local development] run the main entrypoint
 		--completion_type huggingface_api
 
 docker_build: ## [Local development] build the docker image
-	mkdir -p third_party
-	cp -r ../langame-worker/{langame,setup.py} third_party/
+	mkdir -p third_party/langame-worker/langame
+	cp -r ../langame-worker/langame/ third_party/langame-worker/
+	cp ../langame-worker/setup.py third_party/langame-worker/setup.py
 	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
 	rm -rf third_party
 
@@ -31,7 +33,8 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e OPENAI_KEY=${OPENAI_KEY} \
 		-e OPENAI_ORG=${OPENAI_ORG} \
 		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
-		${REGISTRY}:${VERSION} --fix_grammar False --profanity_thresold tolerant --completion_type huggingface_api
+		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
+		${REGISTRY}:${VERSION} --fix_grammar False --profanity_thresold tolerant --completion_type openai_api
 
 k8s_create_svc: ## [Local development] create service account in Kubernetes.
 	# gcloud iam service-accounts create pull-image-gcr \

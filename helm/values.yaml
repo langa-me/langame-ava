@@ -7,7 +7,10 @@
 #   token: baz
 
 replicaCount: 1
-noOpenAI: "False"
+avaConfig:
+  fixGrammar: false
+  profanityThreshold: tolerant
+  completionType: openai_api
 image:
   repository: gcr.io/langame-dev/conversation-starter
   pullPolicy: IfNotPresent

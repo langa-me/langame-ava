@@ -69,7 +69,7 @@ class Ava:
         self.logger.info("Starting server")
         # Create an Event for notifying main thread.
         self.callback_done = threading.Event()
-        doc_ref = self.firestore_client.collection("tests").where(
+        doc_ref = self.firestore_client.collection("social_interactions").where(
             "state", "==", "to-process"
         )
         self.doc_watch = doc_ref.on_snapshot(self.on_snapshot)
