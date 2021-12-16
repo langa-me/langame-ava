@@ -19,6 +19,8 @@ run: ## [Local development] run the main entrypoint
 		--profanity_thresold tolerant \
 		--completion_type huggingface_api
 
+# "don't forget to eval $(cat .env | sed 's/^/export /')"
+
 docker_build: ## [Local development] build the docker image
 	mkdir -p third_party/langame-worker/langame
 	cp -r ../langame-worker/langame/ third_party/langame-worker/
@@ -27,7 +29,6 @@ docker_build: ## [Local development] build the docker image
 	rm -rf third_party
 
 docker_run: docker_build ## [Local development] run the docker container
-	# "don't forget to eval $(cat .env | sed 's/^/export /')"
 	docker run \
 		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
 		-e OPENAI_KEY=${OPENAI_KEY} \

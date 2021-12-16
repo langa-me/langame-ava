@@ -5,6 +5,7 @@ import threading
 import signal
 from typing import List
 from random import choice
+from datetime import datetime, timedelta
 
 # Google
 from firebase_admin import credentials, firestore
@@ -30,7 +31,9 @@ from langame.strings import string_similarity
 from ava.messages import (
     FAILING_MESSAGES,
     PROFANITY_MESSAGES,
+    RATE_LIMIT_MESSAGES,
 )
+
 
 class Ava:
     def __init__(
@@ -90,8 +93,37 @@ class Ava:
     def on_snapshot(self, doc_snapshot: List[DocumentSnapshot], changes, read_time):
         batch = self.firestore_client.batch()
         for doc in doc_snapshot:
-            self.logger.info(f"Received document snapshot: {doc.id}, {doc.to_dict()}")
-            if not doc.exists or doc.to_dict().get("topics", None) is None:
+            data_dict = doc.to_dict()
+            self.logger.info(f"Received document snapshot: {doc.id}, {data_dict}")
+            username = data_dict.get("username")
+            if not username:
+                self.logger.error(f"No username in document {doc.id}. Skipping.")
+                continue
+            rate_limit_doc = (
+                self.firestore_client.collection("rate_limits").document(username).get()
+            )
+            # check if last query happenned less than a minute ago
+            if (
+                rate_limit_doc.exists
+                and "last_query" in rate_limit_doc.to_dict()
+                and datetime.now()
+                < datetime.fromtimestamp(rate_limit_doc.get("last_query").timestamp())
+                + timedelta(seconds=30)
+            ):
+                self.logger.info(f"Rate limit for {username} expired")
+                # TODO: funny messages
+                batch.update(
+                    doc.reference,
+                    {
+                        "state": "error",
+                        "user_message": choice(RATE_LIMIT_MESSAGES),
+                    },
+                )
+                batch.commit()
+                continue
+            rate_limit_doc.reference.set({"last_query": firestore.SERVER_TIMESTAMP})
+
+            if not doc.exists or data_dict.get("topics", None) is None:
                 self.logger.info(f"Document {doc.id} does not exist or has no topics")
                 batch.update(
                     doc.reference, {"state": "error", "user_message": "no-topics"}
@@ -101,14 +133,12 @@ class Ava:
             batch.update(doc.reference, {"state": "processing"})
             batch.commit()
             try:
-                conversation_starter = self.generate(doc.get("topics"))
+                conversation_starter = self.generate(data_dict.get("topics"))
             except ProfaneException as e:
                 self.logger.error(f"Profane: {e}")
                 user_message = choice(PROFANITY_MESSAGES)
                 topics_as_string = ",".join(doc.get("topics"))
-                user_message = user_message.replace(
-                    "[TOPICS]", f"\"{topics_as_string}\""
-                )
+                user_message = user_message.replace("[TOPICS]", f'"{topics_as_string}"')
                 batch.update(
                     doc.reference, {"state": "error", "user_message": user_message}
                 )
@@ -116,7 +146,14 @@ class Ava:
             except Exception as e:
                 self.logger.error(f"Error: {e}")
                 user_message = choice(FAILING_MESSAGES)
-                batch.update(doc.reference, {"state": "error", "user_message": user_message, "developer_message": str(e)})
+                batch.update(
+                    doc.reference,
+                    {
+                        "state": "error",
+                        "user_message": user_message,
+                        "developer_message": str(e),
+                    },
+                )
                 continue
             batch.update(
                 doc.reference,
