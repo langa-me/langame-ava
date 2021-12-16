@@ -11,8 +11,10 @@ avaConfig:
   fixGrammar: false
   profanityThreshold: tolerant
   completionType: openai_api
+googleCloud:
+  serviceAccount: svc.prod.json
 image:
-  repository: gcr.io/langame-dev/conversation-starter
+  repository: gcr.io/langame-86ac4/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""

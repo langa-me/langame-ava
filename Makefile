@@ -1,4 +1,4 @@
-REGISTRY ?= gcr.io/$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)/conversation-starter
+REGISTRY ?= gcr.io/$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)/ava
 VERSION ?= latest
 OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
 OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
@@ -37,36 +37,22 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
 		${REGISTRY}:${VERSION} --fix_grammar False --profanity_thresold tolerant --completion_type openai_api
 
-k8s_create_svc: ## [Local development] create service account in Kubernetes.
-	# gcloud iam service-accounts create pull-image-gcr \
-	# 	--description="pull image gcr from k8s" \
-	# 	--display-name="pull-image-gcr" \
-	# 	--project=${GCLOUD_PROJECT}
-	# gcloud iam service-accounts add-iam-policy-binding $(shell gcloud iam service-accounts list --filter="pull-image-gcr" --format 'value(email)') \
-	# 	--member user:louis.beaumont@gmail.com \
-	# 	--project=${GCLOUD_PROJECT} \
-	# 	--role roles/viewer
-	# Download as key
-	# gcloud iam service-accounts keys create ./pull-image-gcr.json \
-	# 	--iam-account=$(shell gcloud iam service-accounts list --filter="pull-image-gcr" --format 'value(email)') \
-	# 	--project=${GCLOUD_PROJECT}
-	kubectl create secret docker-registry langame-dev-registry \
-		--docker-server=gcr.io \
-		--docker-username=_json_key \
-		--docker-email=louis.beaumont@gmail.com \
-		--docker-password='$(shell cat pull-image-gcr.json)' \
-		-n ava
-	# kubectl patch serviceaccount default \
-	# 	-p '{"imagePullSecrets": [{"name": "langame-dev-registry"}]}'
-
 
 k8s_deploy: ## [Local development] deploy to Kubernetes.
 # 	hack unless we can let k3d access gcr
 	k3d image import ${REGISTRY}:${VERSION} -c basic
-	helm install ava helm -f helm/values-dev.yaml -n ava --create-namespace
+	@if [ "${GCLOUD_PROJECT}" = *"dev"* ]; then\
+        helm install ava helm -f helm/values-dev.yaml -n ava-dev --create-namespace;\
+    else\
+		helm install ava helm -f helm/values-prod.yaml -n ava-prod --create-namespace;\
+	fi
 
 k8s_undeploy: ## [Local development] undeploy from Kubernetes.
-	helm uninstall ava -n ava
+	@if [ "${GCLOUD_PROJECT}" = *"dev"* ]; then\
+        helm uninstall ava -n ava-dev;\
+    else\
+		helm uninstall ava -n ava-prod;\
+	fi
 
 protos: ## [Local development] Generate protos.
 	python3 -m grpc_tools.protoc \
