@@ -42,4 +42,4 @@ USER ${UID}:${GID}
 
 # RUN python -c "import os; from transformers import pipeline, set_seed, TextGenerationPipeline; pipeline('text-generation', model='Langame/gpt2-starter', tokenizer='gpt2', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
 ENTRYPOINT ["/opt/venv/bin/python", "./ava/main.py"]
-CMD ["--fix_grammar", "False", "--profanity_thresold", "tolerant", "--completion_type", "huggingface_api"]
+CMD ["--fix_grammar", "False", "--profanity_threshold", "tolerant", "--completion_type", "huggingface_api", "--tweet_on_generate", "False"]

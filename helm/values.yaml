@@ -9,8 +9,9 @@
 replicaCount: 1
 avaConfig:
   fixGrammar: false
-  profanityThreshold: tolerant
-  completionType: openai_api
+  profanityThreshold: tolerant # open, tolerant, strict
+  completionType: openai_api # openai_api, local, huggingface_api
+  tweetOnGenerate: false # whether to tweet after generating a response
 googleCloud:
   serviceAccount: svc.prod.json
 image:

@@ -7,16 +7,21 @@ HUGGINGFACE_KEY ?= $(shell cat .env | grep HUGGINGFACE_KEY | cut -d '=' -f 2)
 SVC_DEV_PATH ?= "./svc.dev.json"
 SVC_PROD_PATH ?= "./svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
-gcloud_set_prod: ## Set the GCP project to prod
+
+lint: ## [Local development] Run pylint to check code style.
+	@echo "Linting krafla"
+	env/bin/python3 -m pylint ava
+
+gcloud_prod: ## Set the GCP project to prod
 	gcloud config set project langame-86ac4
 
-gcloud_set_dev: ## Set the GCP project to dev
+gcloud_dev: ## Set the GCP project to dev
 	gcloud config set project langame-dev
 
 run: ## [Local development] run the main entrypoint
 	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json \
 		--fix_grammar False \
-		--profanity_thresold tolerant \
+		--profanity_threshold tolerant \
 		--completion_type huggingface_api
 
 # "don't forget to eval $(cat .env | sed 's/^/export /')"
@@ -35,24 +40,23 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e OPENAI_ORG=${OPENAI_ORG} \
 		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
 		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
-		${REGISTRY}:${VERSION} --fix_grammar False --profanity_thresold tolerant --completion_type openai_api
+		${REGISTRY}:${VERSION} --fix_grammar False --profanity_threshold tolerant --completion_type openai_api --tweet_on_generate True
 
-
-k8s_deploy: ## [Local development] deploy to Kubernetes.
+k8s_import_into_k3d:
 # 	hack unless we can let k3d access gcr
 	k3d image import ${REGISTRY}:${VERSION} -c basic
-	@if [ "${GCLOUD_PROJECT}" = *"dev"* ]; then\
-        helm install ava helm -f helm/values-dev.yaml -n ava-dev --create-namespace;\
-    else\
-		helm install ava helm -f helm/values-prod.yaml -n ava-prod --create-namespace;\
-	fi
-
-k8s_undeploy: ## [Local development] undeploy from Kubernetes.
-	@if [ "${GCLOUD_PROJECT}" = *"dev"* ]; then\
-        helm uninstall ava -n ava-dev;\
-    else\
-		helm uninstall ava -n ava-prod;\
-	fi
+k8s_dev_deploy: k8s_import_into_k3d ## [Local development] deploy to Kubernetes.
+	helm install ava helm -f helm/values-dev.yaml -n ava-dev --create-namespace
+k8s_prod_deploy: k8s_import_into_k3d ## [Local development] deploy to Kubernetes.
+	helm install ava helm -f helm/values-prod.yaml -n ava-prod --create-namespace
+k8s_dev_upgrade: k8s_import_into_k3d ## [Local development] upgrade with new config.
+	helm upgrade ava helm -f helm/values-dev.yaml -n ava-dev --recreate-pods
+k8s_prod_upgrade: k8s_import_into_k3d ## [Local development] upgrade with new config.
+	helm upgrade ava helm -f helm/values-prod.yaml -n ava-prod --recreate-pods
+k8s_dev_undeploy: ## [Local development] undeploy from Kubernetes.
+	helm uninstall ava -n ava-dev
+k8s_prod_undeploy: ## [Local development] undeploy from Kubernetes.
+	helm uninstall ava -n ava-prod
 
 protos: ## [Local development] Generate protos.
 	python3 -m grpc_tools.protoc \

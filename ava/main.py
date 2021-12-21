@@ -4,8 +4,6 @@ import logging
 import threading
 import signal
 from typing import List
-from random import choice
-from datetime import datetime, timedelta
 
 # Google
 from firebase_admin import credentials, firestore
@@ -28,25 +26,22 @@ from langame.completion import (
     CompletionType,
 )
 from langame.strings import string_similarity
-from ava.messages import (
-    FAILING_MESSAGES,
-    PROFANITY_MESSAGES,
-    RATE_LIMIT_MESSAGES,
-)
 
 
 class Ava:
     def __init__(
         self,
         fix_grammar: bool = False,
-        profanity_thresold: ProfanityThreshold = ProfanityThreshold.tolerant,
+        profanity_threshold: ProfanityThreshold = ProfanityThreshold.tolerant,
         service_account_key_path: str = "/etc/secrets/primary/svc.json",
         completion_type: CompletionType = CompletionType.huggingface_api,
+        tweet_on_generate: bool = False,
         logger: logging.Logger = None,
     ):
         self.fix_grammar = fix_grammar
-        self.profanity_thresold = profanity_thresold
+        self.profanity_threshold = profanity_threshold
         self.completion_type = completion_type
+        self.tweet_on_generate = tweet_on_generate
         self.logger = logger
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
@@ -67,8 +62,9 @@ class Ava:
         self.logger.info(
             f"Fetched {len(self.memes)} memes, "
             + f"fix grammar: {self.fix_grammar}, "
-            + f"profanity thresold: {self.profanity_thresold}, "
-            + f"completion type: {self.completion_type}"
+            + f"profanity threshold: {self.profanity_threshold}, "
+            + f"completion type: {self.completion_type}, "
+            + f"tweet on generate: {self.tweet_on_generate}"
         )
         self.stopped = False
 
@@ -76,7 +72,7 @@ class Ava:
         self.logger.info("Starting server")
         # Create an Event for notifying main thread.
         self.callback_done = threading.Event()
-        doc_ref = self.firestore_client.collection("social_interactions").where(
+        doc_ref = self.firestore_client.collection("memes").where(
             "state", "==", "to-process"
         )
         self.doc_watch = doc_ref.on_snapshot(self.on_snapshot)
@@ -85,7 +81,6 @@ class Ava:
 
     def shutdown(self, signal, frame):
         self.stopped = True
-        # self.doc_watch()
         self.firestore_client.close()
         self.callback_done.set()
         self.logger.info("Shutting down")
@@ -95,69 +90,51 @@ class Ava:
         for doc in doc_snapshot:
             data_dict = doc.to_dict()
             self.logger.info(f"Received document snapshot: {doc.id}, {data_dict}")
-            username = data_dict.get("username")
-            if not username:
-                self.logger.error(f"No username in document {doc.id}. Skipping.")
-                continue
-            rate_limit_doc = (
-                self.firestore_client.collection("rate_limits").document(username).get()
-            )
-            # check if last query happenned less than a minute ago
-            if (
-                rate_limit_doc.exists
-                and "last_query" in rate_limit_doc.to_dict()
-                and datetime.now()
-                < datetime.fromtimestamp(rate_limit_doc.get("last_query").timestamp())
-                + timedelta(seconds=30)
-            ):
-                self.logger.info(f"Rate limit for {username} expired")
-                # TODO: funny messages
-                batch.update(
-                    doc.reference,
-                    {
-                        "state": "error",
-                        "user_message": choice(RATE_LIMIT_MESSAGES),
-                    },
-                )
-                batch.commit()
-                continue
-            rate_limit_doc.reference.set({"last_query": firestore.SERVER_TIMESTAMP})
-
             if not doc.exists or data_dict.get("topics", None) is None:
                 self.logger.info(f"Document {doc.id} does not exist or has no topics")
-                batch.update(
-                    doc.reference, {"state": "error", "user_message": "no-topics"}
+                batch.set(
+                    doc.reference, {"state": "error", "error": "no-topics"}, merge=True
                 )
                 batch.commit()
                 continue
-            batch.update(doc.reference, {"state": "processing"})
+            if "content" in data_dict:
+                self.logger.info(
+                    "Document already have a conversation starter, skipping"
+                )
+                continue
+            batch.set(doc.reference, {"state": "processing"}, merge=True)
             batch.commit()
             try:
                 conversation_starter = self.generate(data_dict.get("topics"))
             except ProfaneException as e:
                 self.logger.error(f"Profane: {e}")
-                user_message = choice(PROFANITY_MESSAGES)
-                topics_as_string = ",".join(doc.get("topics"))
-                user_message = user_message.replace("[TOPICS]", f'"{topics_as_string}"')
-                batch.update(
-                    doc.reference, {"state": "error", "user_message": user_message}
+                batch.set(
+                    doc.reference, {"state": "error", "error": "profane"}, merge=True
                 )
                 continue
             except Exception as e:
                 self.logger.error(f"Error: {e}")
-                user_message = choice(FAILING_MESSAGES)
-                batch.update(
+                batch.set(
                     doc.reference,
                     {
                         "state": "error",
-                        "user_message": user_message,
+                        "error": "internal",
                         "developer_message": str(e),
                     },
+                    merge=True,
                 )
                 continue
-            batch.update(
+            obj = {
+                "state": "processed",
+                "content": conversation_starter,
+                "tweet": self.tweet_on_generate,
+            }
+            if self.tweet_on_generate:
+                obj["disabled"] = False
+            batch.set(
                 doc.reference,
-                {"state": "processed", "conversation_starter": conversation_starter,},
+                obj,
+                merge=True,
             )
         batch.commit()
         self.callback_done.set()
@@ -168,13 +145,13 @@ class Ava:
             try:
                 self.logger.info(
                     f"Generating conversation starter for {topics}"
-                    + f" using {self.completion_type} with profanity thresold {self.profanity_thresold}"
+                    + f" using {self.completion_type} with profanity threshold {self.profanity_threshold}"
                 )
                 # If fail many times, go for random topic
                 conversation_starter = generate_conversation_starter(
                     self.memes,
                     topics,
-                    profanity_thresold=self.profanity_thresold,
+                    profanity_threshold=self.profanity_threshold,
                     completion_type=self.completion_type,
                     prompt_rows=60
                     if self.completion_type == CompletionType.openai_api
@@ -221,23 +198,29 @@ class Ava:
 
 def serve(
     fix_grammar: bool = False,
-    profanity_thresold: str = "tolerant",
+    profanity_threshold: str = "tolerant",
     service_account_key_path: str = "/etc/secrets/primary/svc.json",
     completion_type: str = "huggingface_api",
+    tweet_on_generate: bool = False,
 ) -> None:
     logger = logging.getLogger("ava")
 
-    # Check that profanity_thresold is a ProfanityThreshold
-    assert profanity_thresold in ProfanityThreshold.__members__.keys()
+    # Check that profanity_threshold is a ProfanityThreshold
+    assert (
+        profanity_threshold in ProfanityThreshold._member_names_
+    ), f"profanity_threshold must be one of {ProfanityThreshold._member_names_}"
     # Check that completion_type is a CompletionType
-    assert completion_type in CompletionType.__members__.keys()
+    assert (
+        completion_type in CompletionType._member_names_
+    ), f"completion_type must be one of {CompletionType._member_names_}"
 
     ava = Ava(
-        fix_grammar,
-        ProfanityThreshold[profanity_thresold],
-        service_account_key_path,
-        CompletionType[completion_type],
-        logger,
+        fix_grammar=fix_grammar,
+        profanity_threshold=ProfanityThreshold[profanity_threshold],
+        service_account_key_path=service_account_key_path,
+        completion_type=CompletionType[completion_type],
+        tweet_on_generate=tweet_on_generate,
+        logger=logger,
     )
 
     # Setup signal handler

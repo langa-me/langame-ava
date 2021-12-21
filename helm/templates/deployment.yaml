@@ -40,6 +40,10 @@ spec:
             - "{{ .Values.avaConfig.profanityThreshold | default "tolerant" }}"
             - "--completion_type"
             - "{{ .Values.avaConfig.completionType | default "openai_api" }}"
+            - "--tweet_on_generate"
+            - "{{ ternary "True" "False" (eq .Values.avaConfig.tweetOnGenerate true)}}"
+            - "--service_account_key_path"
+            - "/etc/secrets/primary/svc.json"
           env:
             - name: OPENAI_KEY
               value: "{{ required "You need to set an OpenAI key" .Values.openai.key }}"
