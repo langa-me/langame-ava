@@ -1,1 +1,4 @@
-todo
+* Get Ava container logs
+  $ kubectl logs -l app.kubernetes.io/instance={{ .Release.Name }} -f --tail=-1 -n {{ .Release.Namespace }}
+* Watch all resource in the namespace
+  $ watch kubectl get all -n {{ .Release.Namespace }}

@@ -42,16 +42,21 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
 		${REGISTRY}:${VERSION} --fix_grammar False --profanity_threshold tolerant --completion_type openai_api --tweet_on_generate True
 
+k8s_import_into_k3s:
+	docker save --output out.tar ${REGISTRY}:${VERSION}
+	sudo k3s ctr images import out.tar
+	rm out.tar
+
 k8s_import_into_k3d:
 # 	hack unless we can let k3d access gcr
 	k3d image import ${REGISTRY}:${VERSION} -c basic
-k8s_dev_deploy: k8s_import_into_k3d ## [Local development] deploy to Kubernetes.
+k8s_dev_deploy: ## [Local development] deploy to Kubernetes.
 	helm install ava helm -f helm/values-dev.yaml -n ava-dev --create-namespace
-k8s_prod_deploy: k8s_import_into_k3d ## [Local development] deploy to Kubernetes.
+k8s_prod_deploy: ## [Local development] deploy to Kubernetes.
 	helm install ava helm -f helm/values-prod.yaml -n ava-prod --create-namespace
-k8s_dev_upgrade: k8s_import_into_k3d ## [Local development] upgrade with new config.
+k8s_dev_upgrade: ## [Local development] upgrade with new config.
 	helm upgrade ava helm -f helm/values-dev.yaml -n ava-dev --recreate-pods
-k8s_prod_upgrade: k8s_import_into_k3d ## [Local development] upgrade with new config.
+k8s_prod_upgrade: ## [Local development] upgrade with new config.
 	helm upgrade ava helm -f helm/values-prod.yaml -n ava-prod --recreate-pods
 k8s_dev_undeploy: ## [Local development] undeploy from Kubernetes.
 	helm uninstall ava -n ava-dev

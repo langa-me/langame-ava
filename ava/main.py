@@ -93,7 +93,9 @@ class Ava:
             if not doc.exists or data_dict.get("topics", None) is None:
                 self.logger.info(f"Document {doc.id} does not exist or has no topics")
                 batch.set(
-                    doc.reference, {"state": "error", "error": "no-topics"}, merge=True
+                    doc.reference,
+                    {"state": "error", "disabled": True, "error": "no-topics"},
+                    merge=True,
                 )
                 batch.commit()
                 continue
@@ -109,7 +111,9 @@ class Ava:
             except ProfaneException as e:
                 self.logger.error(f"Profane: {e}")
                 batch.set(
-                    doc.reference, {"state": "error", "error": "profane"}, merge=True
+                    doc.reference,
+                    {"state": "error", "disabled": True, "error": "profane"},
+                    merge=True,
                 )
                 continue
             except Exception as e:
@@ -120,6 +124,7 @@ class Ava:
                         "state": "error",
                         "error": "internal",
                         "developer_message": str(e),
+                        "disabled": True,
                     },
                     merge=True,
                 )
@@ -128,13 +133,12 @@ class Ava:
                 "state": "processed",
                 "content": conversation_starter,
                 "tweet": self.tweet_on_generate,
+                "disabled": True,
             }
             if self.tweet_on_generate:
                 obj["disabled"] = False
             batch.set(
-                doc.reference,
-                obj,
-                merge=True,
+                doc.reference, obj, merge=True,
             )
         batch.commit()
         self.callback_done.set()
