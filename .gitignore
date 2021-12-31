@@ -1,7 +1,7 @@
 
 # Service accounts
 *svc*
-pull-image*
+k8s-gcr*
 # Binary
 bin
 data

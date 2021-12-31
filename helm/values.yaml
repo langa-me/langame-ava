@@ -14,6 +14,7 @@ avaConfig:
   tweetOnGenerate: false # whether to tweet after generating a response
 googleCloud:
   serviceAccount: svc.prod.json
+  # containerRegistryServiceAccount: k8s-gcr-auth-ro.json
 image:
   repository: gcr.io/langame-86ac4/ava
   pullPolicy: IfNotPresent
@@ -26,7 +27,7 @@ fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
