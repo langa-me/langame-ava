@@ -14,7 +14,7 @@ gcloud_prod: ## Set the GCP project to prod
 gcloud_dev: ## Set the GCP project to dev
 	gcloud config set project langame-dev
 
-# "don't forget to eval $(cat .env | sed 's/^/export /')"
+# eval $(cat .env | sed 's/^/export /')
 
 # docker
 

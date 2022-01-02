@@ -134,6 +134,7 @@ class Ava:
                 "content": conversation_starter,
                 "tweet": self.tweet_on_generate,
                 "disabled": True,
+                "confirmed": False,
             }
             if self.tweet_on_generate:
                 obj["disabled"] = False
