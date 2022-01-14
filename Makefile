@@ -75,7 +75,7 @@ lint: ## [Local development] Run pylint to check code style.
 	env/bin/python3 -m pylint ava
 
 run: ## [Local development] run the main entrypoint
-	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.prod.json \
+	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json \
 		--fix_grammar False \
 		--profanity_threshold tolerant \
 		--completion_type openai_api

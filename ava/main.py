@@ -13,7 +13,15 @@ import fire
 
 # AI
 import openai
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import (
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+    AutoConfig,
+    AutoTokenizer,
+    GPT2LMHeadModel,
+)
+import torch
+
 
 # Own libs
 from langame.logic import generate_conversation_starter
@@ -37,18 +45,34 @@ class Ava:
         completion_type: CompletionType = CompletionType.huggingface_api,
         tweet_on_generate: bool = False,
         logger: logging.Logger = None,
+        use_gpu: bool = False,
     ):
         self.fix_grammar = fix_grammar
         self.profanity_threshold = profanity_threshold
         self.completion_type = completion_type
         self.tweet_on_generate = tweet_on_generate
         self.logger = logger
+        self.device = "cuda:0" if torch.cuda.is_available() and use_gpu else "cpu"
+        self.completion_model = None
+        self.completion_tokenizer = None
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
-            self.device = "cpu"
             self.tokenizer = T5Tokenizer.from_pretrained(model_name)
             self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
                 self.device
+            )
+        # if local completion, load the model and tokenizer
+        if self.completion_type is CompletionType.local:
+            model_name_or_path = "Langame/gpt2-starter-2"
+            token = os.environ.get("HUGGINGFACE_TOKEN")
+            config = AutoConfig.from_pretrained(
+                model_name_or_path, use_auth_token=token
+            )
+            self.completion_model = GPT2LMHeadModel.from_pretrained(
+                model_name_or_path, config=config, use_auth_token=token
+            )
+            self.completion_tokenizer = AutoTokenizer.from_pretrained(
+                model_name_or_path, config=config, use_auth_token=token
             )
         cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
@@ -64,7 +88,8 @@ class Ava:
             + f"fix grammar: {self.fix_grammar}, "
             + f"profanity threshold: {self.profanity_threshold}, "
             + f"completion type: {self.completion_type}, "
-            + f"tweet on generate: {self.tweet_on_generate}"
+            + f"tweet on generate: {self.tweet_on_generate}, "
+            + f"device: {self.device}"
         )
         self.stopped = False
 
@@ -94,7 +119,12 @@ class Ava:
                 self.logger.info(f"Document {doc.id} does not exist or has no topics")
                 batch.set(
                     doc.reference,
-                    {"state": "error", "disabled": True, "error": "no-topics"},
+                    {
+                        "state": "error",
+                        "disabled": True,
+                        "error": "no-topics",
+                        "confirmed": False,
+                    },
                     merge=True,
                 )
                 batch.commit()
@@ -112,7 +142,12 @@ class Ava:
                 self.logger.error(f"Profane: {e}")
                 batch.set(
                     doc.reference,
-                    {"state": "error", "disabled": True, "error": "profane"},
+                    {
+                        "state": "error",
+                        "disabled": True,
+                        "error": "profane",
+                        "confirmed": False,
+                    },
                     merge=True,
                 )
                 continue
@@ -125,6 +160,7 @@ class Ava:
                         "error": "internal",
                         "developer_message": str(e),
                         "disabled": True,
+                        "confirmed": False,
                     },
                     merge=True,
                 )
@@ -150,7 +186,8 @@ class Ava:
             try:
                 self.logger.info(
                     f"Generating conversation starter for {topics}"
-                    + f" using {self.completion_type} with profanity threshold {self.profanity_threshold}"
+                    + f" using {self.completion_type} with profanity"
+                    + f" threshold {self.profanity_threshold}"
                 )
                 # If fail many times, go for random topic
                 conversation_starter = generate_conversation_starter(
@@ -159,8 +196,11 @@ class Ava:
                     profanity_threshold=self.profanity_threshold,
                     completion_type=self.completion_type,
                     prompt_rows=60
-                    if self.completion_type == CompletionType.openai_api
+                    if self.completion_type is CompletionType.openai_api
                     else 5,
+                    model=self.completion_model,
+                    tokenizer=self.completion_tokenizer,
+                    logger=self.logger,
                 )
             except FinishReasonLengthException as e:
                 self.logger.error(e)
@@ -207,6 +247,7 @@ def serve(
     service_account_key_path: str = "/etc/secrets/primary/svc.json",
     completion_type: str = "huggingface_api",
     tweet_on_generate: bool = False,
+    use_gpu: bool = False,
 ) -> None:
     logger = logging.getLogger("ava")
 
@@ -226,6 +267,7 @@ def serve(
         completion_type=CompletionType[completion_type],
         tweet_on_generate=tweet_on_generate,
         logger=logger,
+        use_gpu=use_gpu,
     )
 
     # Setup signal handler

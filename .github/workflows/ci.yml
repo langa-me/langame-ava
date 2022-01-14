@@ -18,5 +18,4 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install, lint and unit tests
       run: |
-        make install
         make lint

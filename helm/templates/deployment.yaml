@@ -44,6 +44,9 @@ spec:
             - "{{ ternary "True" "False" (eq .Values.avaConfig.tweetOnGenerate true)}}"
             - "--service_account_key_path"
             - "/etc/secrets/primary/svc.json"
+            - "--use_gpu"
+            - "False"
+            # TODO: Add support for GPU in Docker
           env:
             - name: OPENAI_KEY
               value: "{{ required "You need to set an OpenAI key" .Values.openai.key }}"

@@ -1,4 +1,5 @@
 FROM python:3.8-slim AS compile-image
+# TODO: gpu
 USER root
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends build-essential gcc && pip3 install virtualenv
