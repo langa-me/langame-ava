@@ -12,6 +12,7 @@ avaConfig:
   profanityThreshold: tolerant # open, tolerant, strict
   completionType: openai_api # openai_api, local, huggingface_api
   tweetOnGenerate: false # whether to tweet after generating a response
+  useGpu: false # whether to use GPU (only for GPU nodes and if completionType is local)
 googleCloud:
   serviceAccount: svc.prod.json
   # containerRegistryServiceAccount: k8s-gcr-auth-ro.json

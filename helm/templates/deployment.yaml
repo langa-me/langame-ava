@@ -33,6 +33,10 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # infinite loop for testing
+          # command:
+            # - "sleep"
+            # - "infinity"
           args:
             - "--fix_grammar"
             - "{{ ternary "True" "False" (eq .Values.avaConfig.fixGrammar true)}}"
@@ -45,9 +49,12 @@ spec:
             - "--service_account_key_path"
             - "/etc/secrets/primary/svc.json"
             - "--use_gpu"
-            - "False"
-            # TODO: Add support for GPU in Docker
+            - "{{ ternary "True" "False" (eq .Values.avaConfig.useGpu true)}}"
           env:
+            - name: PYTHONUNBUFFERED
+              value: "0"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
             - name: OPENAI_KEY
               value: "{{ required "You need to set an OpenAI key" .Values.openai.key }}"
             - name: OPENAI_ORG
@@ -84,3 +91,7 @@ spec:
           hostPath:
             path: /tmp/ava
             type: DirectoryOrCreate
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"

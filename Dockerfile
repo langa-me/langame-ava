@@ -1,8 +1,7 @@
-FROM python:3.8-slim AS compile-image
-# TODO: gpu
+FROM nvidia/cuda:11.5.0-base-ubuntu20.04
 USER root
 RUN apt-get update
-RUN apt-get install -y --no-install-recommends build-essential gcc && pip3 install virtualenv
+RUN apt-get install -y --no-install-recommends python3.8 python3-pip build-essential gcc && pip3 install virtualenv
 
 RUN virtualenv /opt/venv
 # Make sure we use the virtualenv:
@@ -41,6 +40,6 @@ ENV PYTHONUNBUFFERED 0
 # COPY --from=compile-image /ava.egg-info ava.egg-info
 USER ${UID}:${GID}
 
-# RUN python -c "import os; from transformers import pipeline, set_seed, TextGenerationPipeline; pipeline('text-generation', model='Langame/gpt2-starter', tokenizer='gpt2', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
+RUN python -c "import os; from transformers import GPT2LMHeadModel, AutoTokenizer; GPT2LMHeadModel.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN')); AutoTokenizer.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
 ENTRYPOINT ["/opt/venv/bin/python", "./ava/main.py"]
 CMD ["--fix_grammar", "False", "--profanity_threshold", "tolerant", "--completion_type", "huggingface_api", "--tweet_on_generate", "False"]

@@ -52,7 +52,8 @@ class Ava:
         self.completion_type = completion_type
         self.tweet_on_generate = tweet_on_generate
         self.logger = logger
-        self.device = "cuda:0" if torch.cuda.is_available() and use_gpu else "cpu"
+        self.logger.info("initializing...")
+        self.device = "cuda:0" if use_gpu and torch.cuda.is_available() else "cpu"
         self.completion_model = None
         self.completion_tokenizer = None
         if self.fix_grammar:
@@ -63,16 +64,17 @@ class Ava:
             )
         # if local completion, load the model and tokenizer
         if self.completion_type is CompletionType.local:
-            model_name_or_path = "Langame/gpt2-starter-2"
+            model_name_or_path = "Langame/distilgpt2-starter"
             token = os.environ.get("HUGGINGFACE_TOKEN")
-            config = AutoConfig.from_pretrained(
-                model_name_or_path, use_auth_token=token
-            )
+            # config = AutoConfig.from_pretrained(
+            #     model_name_or_path, use_auth_token=token
+            # )
             self.completion_model = GPT2LMHeadModel.from_pretrained(
-                model_name_or_path, config=config, use_auth_token=token
-            )
+                model_name_or_path, use_auth_token=token
+            ).to(self.device)
+            self.completion_model.eval().to(self.device)
             self.completion_tokenizer = AutoTokenizer.from_pretrained(
-                model_name_or_path, config=config, use_auth_token=token
+                model_name_or_path, use_auth_token=token
             )
         cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
