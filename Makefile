@@ -1,4 +1,4 @@
-REGISTRY ?= gcr.io/$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)/ava
+REGISTRY ?= 5306t2h8.gra7.container-registry.ovh.net/$(shell cat .env | grep OVH_PROJECT_ID | cut -d '=' -f 2)/ava
 VERSION ?= latest
 OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
 OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
@@ -7,12 +7,22 @@ HUGGINGFACE_KEY ?= $(shell cat .env | grep HUGGINGFACE_KEY | cut -d '=' -f 2)
 SVC_DEV_PATH ?= "./svc.dev.json"
 SVC_PROD_PATH ?= "./svc.prod.json"
 GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev/null)
+K8S_NAMESPACE=$(shell cat .env | grep K8S_NAMESPACE | cut -d '=' -f 2)
+HELM_VALUES=$(shell cat .env | grep HELM_VALUES | cut -d '=' -f 2)
 
-gcloud_prod: ## Set the GCP project to prod
-	gcloud config set project langame-86ac4
+set_prod: ## Set the GCP project to prod
+	@gcloud config set project langame-86ac4 2>/dev/null
+	@sed -i 's/OVH_PROJECT_ID=.*/OVH_PROJECT_ID="prod"/' .env
+	@sed -i 's/K8S_NAMESPACE=.*/K8S_NAMESPACE="ava-prod"/' .env
+	@sed -i 's/HELM_VALUES=.*/HELM_VALUES="helm\/values-prod.yaml"/' .env
+	@echo "Configured GCP project, OVHCloud project and k8s"
 
-gcloud_dev: ## Set the GCP project to dev
-	gcloud config set project langame-dev
+set_dev: ## Set the GCP project to dev
+	@gcloud config set project langame-dev 2>/dev/null
+	@sed -i 's/OVH_PROJECT_ID=.*/OVH_PROJECT_ID="dev"/' .env
+	@sed -i 's/K8S_NAMESPACE=.*/K8S_NAMESPACE="ava-dev"/' .env
+	@sed -i 's/HELM_VALUES=.*/HELM_VALUES="helm\/values-dev.yaml"/' .env
+	@echo "Configured GCP project, OVHCloud project and k8s"
 
 # eval $(cat .env | sed 's/^/export /')
 
@@ -44,20 +54,13 @@ docker_push: docker_build ## [Local development] push the docker image to GCR
 
 # k8s
 
-k8s_dev_deploy: ## [Local development] deploy to Kubernetes.
-	helm install ava helm -f helm/values-dev.yaml -n ava-dev --create-namespace
-k8s_prod_deploy: ## [Local development] deploy to Kubernetes.
-	helm install ava helm -f helm/values-prod.yaml -n ava-prod --create-namespace
-k8s_dev_upgrade: ## [Local development] upgrade with new config.
-	helm upgrade ava helm -f helm/values-dev.yaml -n ava-dev
+k8s_deploy: ## [Local development] deploy to Kubernetes.
+	helm install ava helm -f ${HELM_VALUES} -n ${K8S_NAMESPACE} --create-namespace
+k8s_upgrade: ## [Local development] upgrade with new config.
+	helm upgrade ava helm -f ${HELM_VALUES} -n ${K8S_NAMESPACE}
 	# --recreate-pods
-k8s_prod_upgrade: ## [Local development] upgrade with new config.
-	helm upgrade ava helm -f helm/values-prod.yaml -n ava-prod
-	# --recreate-pods
-k8s_dev_undeploy: ## [Local development] undeploy from Kubernetes.
-	helm uninstall ava -n ava-dev
-k8s_prod_undeploy: ## [Local development] undeploy from Kubernetes.
-	helm uninstall ava -n ava-prod
+k8s_undeploy: ## [Local development] undeploy from Kubernetes.
+	helm uninstall ava -n ${K8S_NAMESPACE}
 
 # baremetal
 
