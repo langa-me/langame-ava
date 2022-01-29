@@ -13,6 +13,8 @@ avaConfig:
   completionType: openai_api # openai_api, local, huggingface_api
   tweetOnGenerate: false # whether to tweet after generating a response
   useGpu: false # whether to use GPU (only for GPU nodes and if completionType is local)
+  shard: 0 # in distributed scenario, set only if using instances on different clusters
+  # i.e. replicaCount == 1, otherwise it's managed itself
 googleCloud:
   serviceAccount: svc.prod.json
   # containerRegistryServiceAccount: k8s-gcr-auth-ro.json

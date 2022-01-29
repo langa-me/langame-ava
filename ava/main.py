@@ -16,7 +16,6 @@ import openai
 from transformers import (
     T5ForConditionalGeneration,
     T5Tokenizer,
-    AutoConfig,
     AutoTokenizer,
     GPT2LMHeadModel,
 )
@@ -24,7 +23,6 @@ import torch
 
 
 # Own libs
-from langame.logic import generate_conversation_starter
 from langame.profanity import (
     ProfaneException,
     ProfanityThreshold,
@@ -32,6 +30,10 @@ from langame.profanity import (
 from langame.completion import (
     FinishReasonLengthException,
     CompletionType,
+)
+from langame.conversation_starters import (
+    get_existing_conversation_starters,
+    generate_conversation_starter,
 )
 from langame.strings import string_similarity
 
@@ -46,6 +48,7 @@ class Ava:
         tweet_on_generate: bool = False,
         logger: logging.Logger = None,
         use_gpu: bool = False,
+        shard: int = 0,
     ):
         self.fix_grammar = fix_grammar
         self.profanity_threshold = profanity_threshold
@@ -56,6 +59,7 @@ class Ava:
         self.device = "cuda:0" if use_gpu and torch.cuda.is_available() else "cpu"
         self.completion_model = None
         self.completion_tokenizer = None
+        self.shard = shard
         if self.fix_grammar:
             model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
             self.tokenizer = T5Tokenizer.from_pretrained(model_name)
@@ -66,9 +70,6 @@ class Ava:
         if self.completion_type is CompletionType.local:
             model_name_or_path = "Langame/distilgpt2-starter"
             token = os.environ.get("HUGGINGFACE_TOKEN")
-            # config = AutoConfig.from_pretrained(
-            #     model_name_or_path, use_auth_token=token
-            # )
             self.completion_model = GPT2LMHeadModel.from_pretrained(
                 model_name_or_path, use_auth_token=token
             ).to(self.device)
@@ -79,19 +80,26 @@ class Ava:
         cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
         self.firestore_client: Client = firestore.client()
-        self.memes = []
-        for e in self.firestore_client.collection("memes").stream():
-            self.memes.append((e.id, e.to_dict()))
+        (
+            self.conversation_starters,
+            self.index,
+            self.sentence_embeddings_model,
+        ) = get_existing_conversation_starters(
+            self.firestore_client,
+            limit=None,
+            logger=self.logger,
+        )
 
-        assert self.memes, "No memes in database"
+        assert self.conversation_starters, "No conversation starters found"
 
         self.logger.info(
-            f"Fetched {len(self.memes)} memes, "
+            f"Fetched {len(self.conversation_starters)} conversation starters, "
             + f"fix grammar: {self.fix_grammar}, "
             + f"profanity threshold: {self.profanity_threshold}, "
             + f"completion type: {self.completion_type}, "
             + f"tweet on generate: {self.tweet_on_generate}, "
-            + f"device: {self.device}"
+            + f"device: {self.device}, "
+            + f"shard: {self.shard}, "
         )
         self.stopped = False
 
@@ -99,8 +107,10 @@ class Ava:
         self.logger.info("Starting server")
         # Create an Event for notifying main thread.
         self.callback_done = threading.Event()
-        doc_ref = self.firestore_client.collection("memes").where(
-            "state", "==", "to-process"
+        doc_ref = (
+            self.firestore_client.collection("memes").where("state", "==", "to-process")
+            # shard is used in distributed scenarios
+            .where("shard", "==", self.shard)
         )
         self.doc_watch = doc_ref.on_snapshot(self.on_snapshot)
         while not self.stopped:
@@ -116,7 +126,10 @@ class Ava:
         batch = self.firestore_client.batch()
         for doc in doc_snapshot:
             data_dict = doc.to_dict()
-            self.logger.info(f"Received document snapshot: {doc.id}, {data_dict}")
+            self.logger.info(
+                f"Received document snapshot: id: {doc.id},"
+                + f" data: {data_dict}, changes: {changes}, read_time: {read_time}"
+            )
             if not doc.exists or data_dict.get("topics", None) is None:
                 self.logger.info(f"Document {doc.id} does not exist or has no topics")
                 batch.set(
@@ -155,12 +168,22 @@ class Ava:
                 continue
             except Exception as e:
                 self.logger.error(f"Error: {e}")
+                error_code = (
+                    "internal" if not "Rate limit" in str(e) else "resource-exhausted"
+                )
+                dev_message = (
+                    str(e)
+                    if not "Rate limit" in str(e)
+                    else "You have been rate limited, "
+                    + "please reach out at contact@langa.me if you want an increase."
+                )
                 batch.set(
                     doc.reference,
                     {
                         "state": "error",
-                        "error": "internal",
-                        "developer_message": str(e),
+                        # if rate limited by openai, use "resource-exhausted" instead of internal
+                        "error": error_code,
+                        "developer_message": dev_message,
                         "disabled": True,
                         "confirmed": False,
                     },
@@ -193,8 +216,9 @@ class Ava:
                 )
                 # If fail many times, go for random topic
                 conversation_starter = generate_conversation_starter(
-                    self.memes,
-                    topics,
+                    index=self.index,
+                    conversation_starter_examples=self.conversation_starters,
+                    topics=topics,
                     profanity_threshold=self.profanity_threshold,
                     completion_type=self.completion_type,
                     prompt_rows=60
@@ -203,6 +227,7 @@ class Ava:
                     model=self.completion_model,
                     tokenizer=self.completion_tokenizer,
                     logger=self.logger,
+                    sentence_embeddings_model=self.sentence_embeddings_model,
                 )
             except FinishReasonLengthException as e:
                 self.logger.error(e)
@@ -250,6 +275,7 @@ def serve(
     completion_type: str = "huggingface_api",
     tweet_on_generate: bool = False,
     use_gpu: bool = False,
+    shard: int = 0,
 ) -> None:
     logger = logging.getLogger("ava")
 
@@ -270,6 +296,7 @@ def serve(
         tweet_on_generate=tweet_on_generate,
         logger=logger,
         use_gpu=use_gpu,
+        shard=shard,
     )
 
     # Setup signal handler

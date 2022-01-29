@@ -1,5 +1,5 @@
 REGISTRY ?= 5306t2h8.gra7.container-registry.ovh.net/$(shell cat .env | grep OVH_PROJECT_ID | cut -d '=' -f 2)/ava
-VERSION ?= latest
+VERSION ?= 1.0.0
 OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
 OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
 HUGGINGFACE_TOKEN ?= $(shell cat .env | grep HUGGINGFACE_TOKEN | cut -d '=' -f 2)
@@ -47,10 +47,11 @@ docker_run: docker_build ## [Local development] run the docker container
 		--profanity_threshold tolerant \
 		--completion_type local \
 		--tweet_on_generate False \
-		--use_gpu True
+		--use_gpu False
 
 docker_push: docker_build ## [Local development] push the docker image to GCR
 	docker push ${REGISTRY}:${VERSION}
+	docker push ${REGISTRY}:latest
 
 # k8s
 
@@ -81,15 +82,19 @@ install: ## [Local development] Upgrade pip, install requirements, install packa
 	)
 
 lint: ## [Local development] Run pylint to check code style.
-	@echo "Linting krafla"
+	@echo "Linting"
 	env/bin/python3 -m pylint ava
 
 run: ## [Local development] run the main entrypoint
 	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json \
 		--fix_grammar False \
 		--profanity_threshold tolerant \
-		--completion_type openai_api
+		--completion_type openai_api \
+		--shard 0
 
+
+clean:
+	rm -rf env .pytest_cache *.egg-info **/*__pycache__ embeddings/ indexes index_infos.json
 
 .PHONY: help
 

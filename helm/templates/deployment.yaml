@@ -33,10 +33,6 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # infinite loop for testing
-          # command:
-            # - "sleep"
-            # - "infinity"
           args:
             - "--fix_grammar"
             - "{{ ternary "True" "False" (eq .Values.avaConfig.fixGrammar true)}}"
@@ -50,6 +46,8 @@ spec:
             - "/etc/secrets/primary/svc.json"
             - "--use_gpu"
             - "{{ ternary "True" "False" (eq .Values.avaConfig.useGpu true)}}"
+            - "--shard"
+            - "{{ .Values.avaConfig.shard | default "0" }}"
           env:
             - name: PYTHONUNBUFFERED
               value: "0"
@@ -63,6 +61,19 @@ spec:
               value: "{{ required "You need to set an Huggingface token" .Values.huggingface.token }}"
             - name: HUGGINGFACE_KEY
               value: "{{ required "You need to set an Huggingface key" .Values.huggingface.key }}"
+          # Wait until embeddings and index built
+          startupProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            # Embeddings + index might take up to 240 minutes depending on compute resources
+            # (1000 embeddings on 16GB RAM 4 CPU => ~20 min)
+            timeoutSeconds: 18000
+            successThreshold: 1
+            failureThreshold: 300
+            exec:
+              command:
+              - cat
+              - /home/docker/indexes/knn.index
           volumeMounts:
             - name: google-cloud-service-account
               mountPath: /etc/secrets/primary/svc.json
