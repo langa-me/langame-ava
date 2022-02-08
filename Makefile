@@ -1,5 +1,6 @@
 REGISTRY ?= 5306t2h8.gra7.container-registry.ovh.net/$(shell cat .env | grep OVH_PROJECT_ID | cut -d '=' -f 2)/ava
-VERSION ?= 1.0.0
+# take version in setup.py, only what's between the quotes """
+VERSION ?= $(shell cat setup.py | grep version | cut -d '"' -f 2)
 OPENAI_KEY ?= $(shell cat .env | grep OPENAI_KEY | cut -d '=' -f 2)
 OPENAI_ORG ?= $(shell cat .env | grep OPENAI_ORG | cut -d '=' -f 2)
 HUGGINGFACE_TOKEN ?= $(shell cat .env | grep HUGGINGFACE_TOKEN | cut -d '=' -f 2)
@@ -43,7 +44,6 @@ docker_run: docker_build ## [Local development] run the docker container
 		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
 		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
 		${REGISTRY}:${VERSION} \
-		--fix_grammar False \
 		--profanity_threshold tolerant \
 		--completion_type local \
 		--tweet_on_generate False \
@@ -87,10 +87,10 @@ lint: ## [Local development] Run pylint to check code style.
 
 run: ## [Local development] run the main entrypoint
 	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.dev.json \
-		--fix_grammar False \
-		--profanity_threshold tolerant \
+		--profanity_threshold strict \
 		--completion_type openai_api \
-		--shard 0
+		--shard 0 \
+		--only_sample_confirmed_conversation_starters False
 
 
 clean:
