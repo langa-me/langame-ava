@@ -6,6 +6,8 @@ import threading
 import signal
 from typing import List
 from random import choice
+import time
+import traceback
 
 # Google
 from firebase_admin import credentials, firestore
@@ -27,8 +29,9 @@ import torch
 # Own libs
 from langame.profanity import ProfanityThreshold
 from langame.completion import (
-    FinishReasonLengthException,
     CompletionType,
+    is_base_openai_model,
+    is_base_gooseai_model,
 )
 from langame.conversation_starters import (
     get_existing_conversation_starters,
@@ -39,18 +42,12 @@ from langame.conversation_starters import (
 class Ava:
     def __init__(
         self,
-        profanity_threshold: ProfanityThreshold = ProfanityThreshold.tolerant,
         service_account_key_path: str = "/etc/secrets/primary/svc.json",
-        completion_type: CompletionType = CompletionType.huggingface_api,
-        tweet_on_generate: bool = False,
         logger: logging.Logger = None,
         use_gpu: bool = False,
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
     ):
-        self.profanity_threshold = profanity_threshold
-        self.completion_type = completion_type
-        self.tweet_on_generate = tweet_on_generate
         self.logger = logger
         self.logger.info("initializing...")
         self.device = "cuda:0" if use_gpu and torch.cuda.is_available() else "cpu"
@@ -66,17 +63,16 @@ class Ava:
             self.device
         )
 
-        # if local completion, load the model and tokenizer
-        if self.completion_type is CompletionType.local:
-            model_name_or_path = "Langame/distilgpt2-starter"
-            token = os.environ.get("HUGGINGFACE_TOKEN")
-            self.completion_model = GPT2LMHeadModel.from_pretrained(
-                model_name_or_path, use_auth_token=token
-            ).to(self.device)
-            self.completion_model.eval().to(self.device)
-            self.completion_tokenizer = AutoTokenizer.from_pretrained(
-                model_name_or_path, use_auth_token=token
-            )
+        # Load the model and tokenizer for local generation
+        model_name_or_path = "Langame/distilgpt2-starter"
+        token = os.environ.get("HUGGINGFACE_TOKEN")
+        self.completion_model = GPT2LMHeadModel.from_pretrained(
+            model_name_or_path, use_auth_token=token
+        ).to(self.device)
+        self.completion_model.eval().to(self.device)
+        self.completion_tokenizer = AutoTokenizer.from_pretrained(
+            model_name_or_path, use_auth_token=token
+        )
         cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
         self.firestore_client: Client = firestore.client()
@@ -95,9 +91,6 @@ class Ava:
 
         self.logger.info(
             f"Fetched {len(self.conversation_starters)} conversation starters, "
-            + f"profanity threshold: {self.profanity_threshold}, "
-            + f"completion type: {self.completion_type}, "
-            + f"tweet on generate: {self.tweet_on_generate}, "
             + f"device: {self.device}, "
             + f"shard: {self.shard}, "
             + f"only_sample_confirmed_conversation_starters: {self.only_sample_confirmed_conversation_starters}, "
@@ -105,6 +98,9 @@ class Ava:
         self.stopped = False
 
     def run(self):
+        """
+        Run in a loop.
+        """
         self.logger.info("Starting server")
         # Create an Event for notifying main thread.
         self.callback_done = threading.Event()
@@ -117,13 +113,22 @@ class Ava:
         while not self.stopped:
             pass
 
-    def shutdown(self, _, _2):
+    def shutdown(self, _, __):
+        """
+        Stop the ava service.
+        """
         self.stopped = True
         self.firestore_client.close()
         self.callback_done.set()
         self.logger.info("Shutting down")
 
     def on_snapshot(self, doc_snapshot: List[DocumentSnapshot], changes, read_time):
+        """
+        Handle the new conversation starter request.
+        :param doc_snapshot:
+        :param changes:
+        :param read_time:
+        """
         batch = self.firestore_client.batch()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -156,19 +161,38 @@ class Ava:
             batch.commit()
             fix_grammar = data_dict.get("fixGrammar", False)
             parallel_completions = data_dict.get("parallelCompletions", 1)
+            completion_type = CompletionType[
+                data_dict.get("completionType", "openai_api")
+            ]
+            profanity_threshold = ProfanityThreshold[
+                data_dict.get("profanityThreshold", "open")
+            ]
+            api_completion_model = data_dict.get(
+                "apiCompletionModel", "ada:ft-personal-2022-02-09-23-45-15"
+            )
             new_doc_properties = {
                 "disabled": True,
                 "confirmed": False,
                 "fixGrammar": fix_grammar,
                 "parallelCompletions": parallel_completions,
+                "completionType": completion_type.value,
+                "profanityThreshold": profanity_threshold.value,
+                "apiCompletionModel": api_completion_model,
             }
-            if fix_grammar:
-                new_doc_properties["tags"] = ArrayUnion(["grammar"])
             try:
+                start_time = time.time()
                 conversation_starters = self.generate(
                     topics=data_dict.get("topics"),
                     fix_grammar=fix_grammar,
                     parallel_completions=parallel_completions,
+                    completion_type=completion_type,
+                    profanity_threshold=profanity_threshold,
+                    api_completion_model=api_completion_model,
+                )
+                end_time = time.time()
+                self.logger.info(
+                    f"Generated {len(conversation_starters)} conversation starters"
+                    + f" in {end_time - start_time} seconds"
                 )
                 # if all contains profane words
                 if len(
@@ -187,7 +211,7 @@ class Ava:
                     )
                     continue
             except Exception as e:
-                self.logger.error(f"Error: {e}")
+                self.logger.error(e, traceback.format_exc())
                 error_code = (
                     # i.e. AI APIs rate limit exceeded
                     "resource-exhausted"
@@ -219,19 +243,14 @@ class Ava:
                 key=lambda x: int(x.get("classification", 0)),
                 default=choice(conversation_starters),
             )
-            self.logger.info(
-                f"Selected conversation starter: {conversation_starter}"
-            )
+            self.logger.info(f"Selected conversation starter: {conversation_starter}")
             obj = {
                 **new_doc_properties,
                 "state": "processed",
                 "conversationStarters": conversation_starters,
                 "content": conversation_starter["conversation_starter"],
                 "brokenGrammar": conversation_starter.get("broken_grammar", ""),
-                "tweet": self.tweet_on_generate,
             }
-            if self.tweet_on_generate:
-                obj["disabled"] = False
             batch.set(
                 doc.reference, obj, merge=True,
             )
@@ -243,69 +262,76 @@ class Ava:
         topics: List[str],
         fix_grammar: bool = False,
         parallel_completions: int = 1,
+        completion_type: CompletionType = CompletionType.openai_api,
+        profanity_threshold: ProfanityThreshold = ProfanityThreshold.open,
+        api_completion_model: str = "ada:ft-personal-2022-02-09-23-45-15",
     ) -> List[dict]:
-        conversation_starters = None
-        for _ in range(5):
-            try:
-                self.logger.info(
-                    f"Generating conversation starter for {topics}"
-                    + f" using {self.completion_type} with profanity"
-                    + f" threshold {self.profanity_threshold}"
-                    + f" fix grammar {fix_grammar}"
-                    + f" parallel completions {parallel_completions}"
-                )
-                conversation_starters = generate_conversation_starter(
-                    index=self.index,
-                    conversation_starter_examples=self.conversation_starters,
-                    topics=topics,
-                    profanity_threshold=self.profanity_threshold,
-                    completion_type=self.completion_type,
-                    prompt_rows=60
-                    if self.completion_type is CompletionType.openai_api
-                    else 5,
-                    model=self.completion_model,
-                    tokenizer=self.completion_tokenizer,
-                    logger=self.logger,
-                    sentence_embeddings_model=self.sentence_embeddings_model,
-                    fix_grammar=fix_grammar,
-                    grammar_tokenizer=self.grammar_tokenizer,
-                    grammar_model=self.grammar_model,
-                    use_classification=parallel_completions > 1,
-                    parallel_completions=parallel_completions,
-                )
-            except FinishReasonLengthException as e:
-                self.logger.error(e)
-                continue
-
-            return conversation_starters
-        raise Exception("not-found")
-
+        """
+        Generate conversation starters for a given topic.
+        :param topics: list of topics
+        :param fix_grammar: whether to fix grammar
+        :param parallel_completions: number of parallel completions
+        :param completion_type: completion type
+        :param profanity_threshold: profanity threshold
+        :return: list of conversation starters
+        """
+        prompt_rows = (
+            60
+            if completion_type
+            # We only use 60 rows for davinci-codex and gooseai models
+            and (
+                is_base_openai_model(api_completion_model)
+                or is_base_gooseai_model(api_completion_model)
+            )
+            is CompletionType.openai_api
+            else 5
+        )
+        self.logger.info(
+            f"Generating conversation starter for {topics}"
+            + f" completion_type {completion_type}"
+            + f" profanity_threshold {profanity_threshold}"
+            + f" fix_grammar {fix_grammar}"
+            + f" parallel_completions {parallel_completions}"
+            + f" api_completion_model {api_completion_model}"
+            + f" prompt_rows {prompt_rows}"
+        )
+        return generate_conversation_starter(
+            index=self.index,
+            conversation_starter_examples=self.conversation_starters,
+            topics=topics,
+            profanity_threshold=profanity_threshold,
+            completion_type=completion_type,
+            prompt_rows=prompt_rows,
+            model=self.completion_model,
+            tokenizer=self.completion_tokenizer,
+            logger=self.logger,
+            sentence_embeddings_model=self.sentence_embeddings_model,
+            fix_grammar=fix_grammar,
+            grammar_tokenizer=self.grammar_tokenizer,
+            grammar_model=self.grammar_model,
+            use_classification=parallel_completions > 1,
+            parallel_completions=parallel_completions,
+            api_completion_model=api_completion_model,
+        )
 
 def serve(
-    profanity_threshold: str = "tolerant",
     service_account_key_path: str = "/etc/secrets/primary/svc.json",
-    completion_type: str = "huggingface_api",
-    tweet_on_generate: bool = False,
     use_gpu: bool = False,
     shard: int = 0,
     only_sample_confirmed_conversation_starters: bool = True,
 ) -> None:
+    """
+    Start the conversation starter generation service.
+    :param service_account_key_path: path to service account key
+    :param use_gpu: whether to use gpu
+    :param shard: shard number
+    :param only_sample_confirmed_conversation_starters:
+    whether to only sample confirmed conversation starters
+    """
     logger = logging.getLogger("ava")
 
-    # Check that profanity_threshold is a ProfanityThreshold
-    assert (
-        profanity_threshold in ProfanityThreshold._member_names_
-    ), f"profanity_threshold must be one of {ProfanityThreshold._member_names_}"
-    # Check that completion_type is a CompletionType
-    assert (
-        completion_type in CompletionType._member_names_
-    ), f"completion_type must be one of {CompletionType._member_names_}"
-
     ava = Ava(
-        profanity_threshold=ProfanityThreshold[profanity_threshold],
         service_account_key_path=service_account_key_path,
-        completion_type=CompletionType[completion_type],
-        tweet_on_generate=tweet_on_generate,
         logger=logger,
         use_gpu=use_gpu,
         shard=shard,
@@ -319,6 +345,9 @@ def serve(
 
 
 def main():
+    """
+    Starts ava.
+    """
     logging.basicConfig(level=logging.INFO)
 
     openai.api_key = os.environ.get("OPENAI_KEY")

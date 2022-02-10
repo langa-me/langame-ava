@@ -6,11 +6,11 @@
 # huggingface:
 #   token: baz
 
+# gooseai:
+#   key: qux
+
 replicaCount: 1
 avaConfig:
-  profanityThreshold: tolerant # open, tolerant, strict
-  completionType: openai_api # openai_api, local, huggingface_api
-  tweetOnGenerate: false # whether to tweet after generating a response
   useGpu: false # whether to use GPU (only for GPU nodes and if completionType is local)
   shard: 0 # in distributed scenario, set only if using instances on different clusters
   # i.e. replicaCount == 1, otherwise it's managed itself
@@ -22,7 +22,7 @@ image:
   repository: gcr.io/langame-86ac4/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.0.3
+  tag: 1.0.7
 
 imagePullSecrets: []
 nameOverride: ""

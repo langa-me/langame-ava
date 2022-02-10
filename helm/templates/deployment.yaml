@@ -34,12 +34,6 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - "--profanity_threshold"
-            - "{{ .Values.avaConfig.profanityThreshold | default "tolerant" }}"
-            - "--completion_type"
-            - "{{ .Values.avaConfig.completionType | default "openai_api" }}"
-            - "--tweet_on_generate"
-            - "{{ ternary "True" "False" (eq .Values.avaConfig.tweetOnGenerate true)}}"
             - "--service_account_key_path"
             - "/etc/secrets/primary/svc.json"
             - "--use_gpu"
@@ -61,6 +55,8 @@ spec:
               value: "{{ required "You need to set an Huggingface token" .Values.huggingface.token }}"
             - name: HUGGINGFACE_KEY
               value: "{{ required "You need to set an Huggingface key" .Values.huggingface.key }}"
+            - name: GOOSEAI_KEY
+              value: "{{ required "You need to set a GooseAI key" .Values.gooseai.key }}"
           # Wait until embeddings and index built
           startupProbe:
             initialDelaySeconds: 60
