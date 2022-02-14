@@ -32,6 +32,7 @@ from langame.completion import (
     CompletionType,
     is_base_openai_model,
     is_base_gooseai_model,
+    is_fine_tuned_openai,
 )
 from langame.conversation_starters import (
     get_existing_conversation_starters,
@@ -168,7 +169,7 @@ class Ava:
                 data_dict.get("profanityThreshold", "open")
             ]
             api_completion_model = data_dict.get(
-                "apiCompletionModel", "ada:ft-personal-2022-02-09-23-45-15"
+                "apiCompletionModel", "curie:ft-personal-2022-02-09-05-17-08"
             )
             new_doc_properties = {
                 "disabled": True,
@@ -264,7 +265,7 @@ class Ava:
         parallel_completions: int = 1,
         completion_type: CompletionType = CompletionType.openai_api,
         profanity_threshold: ProfanityThreshold = ProfanityThreshold.open,
-        api_completion_model: str = "ada:ft-personal-2022-02-09-23-45-15",
+        api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
     ) -> List[dict]:
         """
         Generate conversation starters for a given topic.
@@ -275,17 +276,24 @@ class Ava:
         :param profanity_threshold: profanity threshold
         :return: list of conversation starters
         """
-        prompt_rows = (
-            60
-            if completion_type
+        prompt_rows = 5
+
+        if (
+            completion_type is CompletionType.openai_api
             # We only use 60 rows for davinci-codex and gooseai models
             and (
                 is_base_openai_model(api_completion_model)
                 or is_base_gooseai_model(api_completion_model)
             )
-            is CompletionType.openai_api
-            else 5
-        )
+        ):
+            prompt_rows = 60
+        elif (
+            completion_type is CompletionType.openai_api
+            # Fine tuned OpenAI model use zero shot
+            and is_fine_tuned_openai(api_completion_model)
+        ):
+            prompt_rows = 1
+
         self.logger.info(
             f"Generating conversation starter for {topics}"
             + f" completion_type {completion_type}"
@@ -313,6 +321,7 @@ class Ava:
             parallel_completions=parallel_completions,
             api_completion_model=api_completion_model,
         )
+
 
 def serve(
     service_account_key_path: str = "/etc/secrets/primary/svc.json",

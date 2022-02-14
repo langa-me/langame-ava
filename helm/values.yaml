@@ -22,7 +22,7 @@ image:
   repository: gcr.io/langame-86ac4/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.0.7
+  tag: 1.0.8
 
 imagePullSecrets: []
 nameOverride: ""

@@ -9,7 +9,7 @@ if __name__ == "__main__":
         name="ava",
         packages=find_packages(),
         include_package_data=True,
-        version="1.0.7",
+        version="1.0.8",
         entry_points={"console_scripts": ["ava = ava:main"]},
         author="Louis Beaumont",
         author_email="louis@langa.me",
