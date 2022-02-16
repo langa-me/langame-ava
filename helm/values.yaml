@@ -15,6 +15,8 @@ avaConfig:
   shard: 0 # in distributed scenario, set only if using instances on different clusters
   # i.e. replicaCount == 1, otherwise it's managed itself
   only_sample_confirmed_conversation_starters: true
+  defaultApiCompletionModel: "curie:ft-personal-2022-02-09-05-17-08"
+
 googleCloud:
   serviceAccount: svc.prod.json
   # containerRegistryServiceAccount: k8s-gcr-auth-ro.json
@@ -22,7 +24,7 @@ image:
   repository: gcr.io/langame-86ac4/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.0.8
+  tag: 1.0.9
 
 imagePullSecrets: []
 nameOverride: ""

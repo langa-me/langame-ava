@@ -65,13 +65,6 @@ k8s_undeploy: ## [Local development] undeploy from Kubernetes.
 
 # baremetal
 
-protos: ## [Local development] Generate protos.
-	python3 -m grpc_tools.protoc \
-		--python_out=. \
-		--include_imports \
-		--include_source_info \
-		proto/ava/v1/*.proto
-
 install: ## [Local development] Upgrade pip, install requirements, install package.
 	(\
 		python3 -m virtualenv env; \

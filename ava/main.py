@@ -4,7 +4,7 @@ import os
 import logging
 import threading
 import signal
-from typing import List
+from typing import List, Optional
 from random import choice
 import time
 import traceback
@@ -48,6 +48,7 @@ class Ava:
         use_gpu: bool = False,
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
+        default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
     ):
         self.logger = logger
         self.logger.info("initializing...")
@@ -58,6 +59,7 @@ class Ava:
         self.only_sample_confirmed_conversation_starters = (
             only_sample_confirmed_conversation_starters
         )
+        self.default_api_completion_model = default_api_completion_model
         model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
         self.grammar_tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.grammar_model = T5ForConditionalGeneration.from_pretrained(model_name).to(
@@ -95,6 +97,7 @@ class Ava:
             + f"device: {self.device}, "
             + f"shard: {self.shard}, "
             + f"only_sample_confirmed_conversation_starters: {self.only_sample_confirmed_conversation_starters}, "
+            + f"default_api_completion_model: {self.default_api_completion_model}"
         )
         self.stopped = False
 
@@ -169,7 +172,7 @@ class Ava:
                 data_dict.get("profanityThreshold", "open")
             ]
             api_completion_model = data_dict.get(
-                "apiCompletionModel", "curie:ft-personal-2022-02-09-05-17-08"
+                "apiCompletionModel", self.default_api_completion_model
             )
             new_doc_properties = {
                 "disabled": True,
@@ -328,6 +331,7 @@ def serve(
     use_gpu: bool = False,
     shard: int = 0,
     only_sample_confirmed_conversation_starters: bool = True,
+    default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
 ) -> None:
     """
     Start the conversation starter generation service.
@@ -345,6 +349,7 @@ def serve(
         use_gpu=use_gpu,
         shard=shard,
         only_sample_confirmed_conversation_starters=only_sample_confirmed_conversation_starters,
+        default_api_completion_model=default_api_completion_model,
     )
 
     # Setup signal handler
