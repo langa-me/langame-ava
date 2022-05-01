@@ -44,6 +44,8 @@ spec:
             - "{{ ternary "True" "False" (eq .Values.avaConfig.onlySampleConfirmedConversationStarters true)}}"
             - "--default_api_completion_model"
             - "{{ .Values.avaConfig.defaultApiCompletionModel | default "curie:ft-personal-2022-02-09-05-17-08" }}"
+            - "--default_api_classification_model"
+            - "{{ .Values.avaConfig.defaultApiClassificationModel | default "ada:ft-personal-2022-05-01-04-04-50" }}"
           env:
             - name: PYTHONUNBUFFERED
               value: "0"

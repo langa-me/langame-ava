@@ -29,7 +29,7 @@ docker/build: ## [Local development] build the docker image
 	mkdir -p third_party/langame-worker/langame
 	cp -r ../langame-worker/langame/ third_party/langame-worker/
 	cp ../langame-worker/setup.py third_party/langame-worker/setup.py
-	docker buildx build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+	docker buildx build -t ${REGISTRY}:${VERSION} -t ${REGISTRY}:latest --platform linux/amd64 .  -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
 	rm -rf third_party
 
 docker/run: docker/build ## [Local development] run the docker container

@@ -49,7 +49,7 @@ class Ava:
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
         default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
-        default_api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+        default_api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
     ):
         self.logger = logger
         self.logger.info("initializing...")
@@ -277,7 +277,7 @@ class Ava:
         completion_type: CompletionType = CompletionType.openai_api,
         profanity_threshold: ProfanityThreshold = ProfanityThreshold.open,
         api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
-        api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+        api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
     ) -> List[dict]:
         """
         Generate conversation starters for a given topic.
@@ -345,7 +345,7 @@ def serve(
     shard: int = 0,
     only_sample_confirmed_conversation_starters: bool = True,
     default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
-    default_api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+    default_api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
 ) -> None:
     """
     Start the conversation starter generation service.
