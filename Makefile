@@ -11,32 +11,28 @@ GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev
 K8S_NAMESPACE=$(shell cat .env | grep K8S_NAMESPACE | cut -d '=' -f 2)
 HELM_VALUES=$(shell cat .env | grep HELM_VALUES | cut -d '=' -f 2)
 
-set_prod: ## Set the GCP project to prod
+prod: ## Set the GCP project to prod
 	@gcloud config set project langame-86ac4 2>/dev/null
 	@sed -i 's/OVH_PROJECT_ID=.*/OVH_PROJECT_ID="prod"/' .env
 	@sed -i 's/K8S_NAMESPACE=.*/K8S_NAMESPACE="ava-prod"/' .env
 	@sed -i 's/HELM_VALUES=.*/HELM_VALUES="helm\/values-prod.yaml"/' .env
-	@echo "Configured GCP project, OVHCloud project and k8s"
+	@echo "Configured prod GCP project, OVHCloud project and k8s"
 
-set_dev: ## Set the GCP project to dev
+dev: ## Set the GCP project to dev
 	@gcloud config set project langame-dev 2>/dev/null
 	@sed -i 's/OVH_PROJECT_ID=.*/OVH_PROJECT_ID="dev"/' .env
 	@sed -i 's/K8S_NAMESPACE=.*/K8S_NAMESPACE="ava-dev"/' .env
 	@sed -i 's/HELM_VALUES=.*/HELM_VALUES="helm\/values-dev.yaml"/' .env
-	@echo "Configured GCP project, OVHCloud project and k8s"
+	@echo "Configured dev GCP project, OVHCloud project and k8s"
 
-# eval $(cat .env | sed 's/^/export /')
-
-# docker
-
-docker_build: ## [Local development] build the docker image
+docker/build: ## [Local development] build the docker image
 	mkdir -p third_party/langame-worker/langame
 	cp -r ../langame-worker/langame/ third_party/langame-worker/
 	cp ../langame-worker/setup.py third_party/langame-worker/setup.py
-	docker build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+	docker buildx build -t ${REGISTRY}:${VERSION} . -f ./Dockerfile --build-arg HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
 	rm -rf third_party
 
-docker_run: docker_build ## [Local development] run the docker container
+docker/run: docker/build ## [Local development] run the docker container
 	docker run \
 		-v $(shell pwd)/svc.dev.json:/etc/secrets/primary/svc.json \
 		-e OPENAI_KEY=${OPENAI_KEY} \
@@ -49,34 +45,29 @@ docker_run: docker_build ## [Local development] run the docker container
 		--tweet_on_generate False \
 		--use_gpu False
 
-docker_push: docker_build ## [Local development] push the docker image to GCR
+docker/push: docker/build ## [Local development] push the docker image to GCR
 	docker push ${REGISTRY}:${VERSION}
 	docker push ${REGISTRY}:latest
 
-# k8s
-
-k8s_deploy: ## [Local development] deploy to Kubernetes.
+k8s/deploy: ## [Local development] deploy to Kubernetes.
 	helm install ava helm -f ${HELM_VALUES} -n ${K8S_NAMESPACE} --create-namespace
-k8s_upgrade: ## [Local development] upgrade with new config.
+k8s/upgrade: ## [Local development] upgrade with new config.
 	helm upgrade ava helm -f ${HELM_VALUES} -n ${K8S_NAMESPACE}
-	# --recreate-pods
-k8s_undeploy: ## [Local development] undeploy from Kubernetes.
+k8s/undeploy: ## [Local development] undeploy from Kubernetes.
 	helm uninstall ava -n ${K8S_NAMESPACE}
 
+release:
+	@echo "Releasing version ${VERSION}"; \
+	git add .; \
+	read -p "Commit content:" COMMIT; \
+	echo "Committing '${VERSION}: $$COMMIT'"; \
+	git commit -m "${VERSION}: $$COMMIT"; \
+	git push origin main; \
+	git tag v${VERSION}; \
+	git push origin v${VERSION}
+	echo "Done, check https://github.com/langa-me/ava/actions"
+
 # baremetal
-
-install: ## [Local development] Upgrade pip, install requirements, install package.
-	(\
-		python3 -m virtualenv env; \
-		. env/bin/activate; \
-		python3 -m pip install -U pip; \
-		python3 -m pip install -e .; \
-		python3 -m pip install -r requirements-test.txt; \
-	)
-
-lint: ## [Local development] Run pylint to check code style.
-	@echo "Linting"
-	env/bin/python3 -m pylint ava
 
 run: ## [Local development] run the main entrypoint
 	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.prod.json \

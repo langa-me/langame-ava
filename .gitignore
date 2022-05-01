@@ -15,3 +15,5 @@ __pycache__
 
 .env
 third_party
+
+.DS_STORE

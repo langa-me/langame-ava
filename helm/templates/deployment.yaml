@@ -41,7 +41,7 @@ spec:
             - "--shard"
             - "{{ .Values.avaConfig.shard | default "0" }}"
             - "--only_sample_confirmed_conversation_starters"
-            - "{{ ternary "True" "False" (eq .Values.avaConfig.only_sample_confirmed_conversation_starters true)}}"
+            - "{{ ternary "True" "False" (eq .Values.avaConfig.onlySampleConfirmedConversationStarters true)}}"
             - "--default_api_completion_model"
             - "{{ .Values.avaConfig.defaultApiCompletionModel | default "curie:ft-personal-2022-02-09-05-17-08" }}"
           env:

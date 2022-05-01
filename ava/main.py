@@ -49,6 +49,7 @@ class Ava:
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
         default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+        default_api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
     ):
         self.logger = logger
         self.logger.info("initializing...")
@@ -60,6 +61,7 @@ class Ava:
             only_sample_confirmed_conversation_starters
         )
         self.default_api_completion_model = default_api_completion_model
+        self.default_api_classification_model = default_api_classification_model
         model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
         self.grammar_tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.grammar_model = T5ForConditionalGeneration.from_pretrained(model_name).to(
@@ -98,6 +100,7 @@ class Ava:
             + f"shard: {self.shard}, "
             + f"only_sample_confirmed_conversation_starters: {self.only_sample_confirmed_conversation_starters}, "
             + f"default_api_completion_model: {self.default_api_completion_model}"
+            + f"default_api_classification_model: {self.default_api_classification_model}"
         )
         self.stopped = False
 
@@ -174,6 +177,9 @@ class Ava:
             api_completion_model = data_dict.get(
                 "apiCompletionModel", self.default_api_completion_model
             )
+            api_classification_model = data_dict.get(
+                "apiClassificationModel", self.default_api_classification_model
+            )
             new_doc_properties = {
                 "disabled": True,
                 "confirmed": False,
@@ -182,6 +188,7 @@ class Ava:
                 "completionType": completion_type.value,
                 "profanityThreshold": profanity_threshold.value,
                 "apiCompletionModel": api_completion_model,
+                "apiClassificationModel": api_classification_model,
             }
             try:
                 start_time = time.time()
@@ -192,6 +199,7 @@ class Ava:
                     completion_type=completion_type,
                     profanity_threshold=profanity_threshold,
                     api_completion_model=api_completion_model,
+                    api_classification_model=api_classification_model,
                 )
                 end_time = time.time()
                 self.logger.info(
@@ -269,6 +277,7 @@ class Ava:
         completion_type: CompletionType = CompletionType.openai_api,
         profanity_threshold: ProfanityThreshold = ProfanityThreshold.open,
         api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+        api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
     ) -> List[dict]:
         """
         Generate conversation starters for a given topic.
@@ -277,6 +286,8 @@ class Ava:
         :param parallel_completions: number of parallel completions
         :param completion_type: completion type
         :param profanity_threshold: profanity threshold
+        :param api_completion_model: api completion model
+        :param api_classification_model: api classification model
         :return: list of conversation starters
         """
         prompt_rows = 5
@@ -304,6 +315,7 @@ class Ava:
             + f" fix_grammar {fix_grammar}"
             + f" parallel_completions {parallel_completions}"
             + f" api_completion_model {api_completion_model}"
+            + f" api_classification_model {api_classification_model}"
             + f" prompt_rows {prompt_rows}"
         )
         return generate_conversation_starter(
@@ -323,6 +335,7 @@ class Ava:
             use_classification=parallel_completions > 1,
             parallel_completions=parallel_completions,
             api_completion_model=api_completion_model,
+            api_classification_model=api_classification_model,
         )
 
 
@@ -332,6 +345,7 @@ def serve(
     shard: int = 0,
     only_sample_confirmed_conversation_starters: bool = True,
     default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
+    default_api_classification_model: str = "curie:ft-personal-2022-02-09-05-17-08",
 ) -> None:
     """
     Start the conversation starter generation service.
@@ -350,6 +364,7 @@ def serve(
         shard=shard,
         only_sample_confirmed_conversation_starters=only_sample_confirmed_conversation_starters,
         default_api_completion_model=default_api_completion_model,
+        default_api_classification_model=default_api_classification_model,
     )
 
     # Setup signal handler
