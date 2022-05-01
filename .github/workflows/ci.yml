@@ -36,7 +36,7 @@ jobs:
       -
         name: Clone langa-me/langame-worker
         run: |
-          git clone https://github.com/langa-me/langame-worker.git ../langame-worker
+          https://louis030195:${{ secrets.PAT_TOKEN }}@github.com/langa-me/langame-worker.git ../langame-worker
           mkdir -p third_party/langame-worker/langame
           cp -r ../langame-worker/langame/ third_party/langame-worker/
           cp ../langame-worker/setup.py third_party/langame-worker/setup.py
