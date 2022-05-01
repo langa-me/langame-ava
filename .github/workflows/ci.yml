@@ -48,6 +48,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
+          build-args: HUGGINGFACE_TOKEN=${{ secrets.HUGGINGFACE_TOKEN }}
           tags: |
             ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:latest
             ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:${{ env.TAG_NAME }}
