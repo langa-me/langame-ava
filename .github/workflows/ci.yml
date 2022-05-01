@@ -34,6 +34,13 @@ jobs:
         # echo "${firstString/Suzi/"$secondString"}"    
         run: echo "TAG_NAME=$(echo ${{github.ref_name}} | sed 's/^v//')" >> $GITHUB_ENV
       -
+        name: Clone langa-me/langame-worker
+        run: |
+          git clone https://github.com/langa-me/langame-worker.git ..
+          mkdir -p third_party/langame-worker/langame
+          cp -r ../langame-worker/langame/ third_party/langame-worker/
+          cp ../langame-worker/setup.py third_party/langame-worker/setup.py
+      -
         name: Build and push
         uses: docker/build-push-action@v2
         with:

@@ -41,7 +41,7 @@ ENV PYTHONUNBUFFERED 0
 USER ${UID}:${GID}
 
 # Writing models in the container
-RUN python -c "import os; from transformers import GPT2LMHeadModel, AutoTokenizer; GPT2LMHeadModel.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN')); AutoTokenizer.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
-RUN python -c "import os; from transformers import T5ForConditionalGeneration, T5Tokenizer; T5Tokenizer.from_pretrained('flexudy/t5-small-wav2vec2-grammar-fixer'); T5ForConditionalGeneration.from_pretrained('flexudy/t5-small-wav2vec2-grammar-fixer')"
+# RUN python -c "import os; from transformers import GPT2LMHeadModel, AutoTokenizer; GPT2LMHeadModel.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN')); AutoTokenizer.from_pretrained('Langame/distilgpt2-starter', use_auth_token=os.environ.get('HUGGINGFACE_TOKEN'))"
+# RUN python -c "import os; from transformers import T5ForConditionalGeneration, T5Tokenizer; T5Tokenizer.from_pretrained('flexudy/t5-small-wav2vec2-grammar-fixer'); T5ForConditionalGeneration.from_pretrained('flexudy/t5-small-wav2vec2-grammar-fixer')"
 ENTRYPOINT ["/opt/venv/bin/python", "./ava/main.py"]
 CMD ["--profanity_threshold", "tolerant", "--completion_type", "huggingface_api", "--tweet_on_generate", "False"]
