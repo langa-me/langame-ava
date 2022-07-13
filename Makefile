@@ -1,3 +1,4 @@
+.EXPORT_ALL_VARIABLES:
 REGISTRY ?= 5306t2h8.gra7.container-registry.ovh.net/$(shell cat .env | grep OVH_PROJECT_ID | cut -d '=' -f 2)/ava
 # take version in setup.py, only what's between the quotes """
 VERSION ?= $(shell cat setup.py | grep version | cut -d '"' -f 2)
@@ -39,11 +40,7 @@ docker/run: docker/build ## [Local development] run the docker container
 		-e OPENAI_ORG=${OPENAI_ORG} \
 		-e HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN} \
 		-e HUGGINGFACE_KEY=${HUGGINGFACE_KEY} \
-		${REGISTRY}:${VERSION} \
-		--profanity_threshold tolerant \
-		--completion_type local \
-		--tweet_on_generate False \
-		--use_gpu False
+		${REGISTRY}:${VERSION}
 
 docker/push: docker/build ## [Local development] push the docker image to GCR
 	docker push ${REGISTRY}:${VERSION}
@@ -70,9 +67,8 @@ release:
 # baremetal
 
 run: ## [Local development] run the main entrypoint
-	python3 $(shell pwd)/ava/main.py --service_account_key_path=svc.prod.json \
-		--shard 0 \
-		--only_sample_confirmed_conversation_starters True
+	OPENAI_ORG=${OPENAI_ORG} OPENAI_KEY=${OPENAI_KEY} python3 $(shell pwd)/ava/main.py \
+		--service_account_key_path=svc.prod.json
 
 
 clean:

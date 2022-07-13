@@ -15,8 +15,6 @@ avaConfig:
   shard: 0 # in distributed scenario, set only if using instances on different clusters
   # i.e. replicaCount == 1, otherwise it's managed itself
   onlySampleConfirmedConversationStarters: true
-  defaultApiCompletionModel: "curie:ft-personal-2022-04-08-09-15-19"
-  defaultApiClassificationModel: "ada:ft-personal-2022-05-01-04-04-50"
 
 googleCloud:
   serviceAccount: svc.prod.json
@@ -25,7 +23,7 @@ image:
   repository: 5306t2h8.gra7.container-registry.ovh.net/prod/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.1.6
+  tag: 1.1.8
 
 imagePullSecrets: []
 nameOverride: ""

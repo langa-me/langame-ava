@@ -33,6 +33,7 @@ from langame.completion import (
     is_base_openai_model,
     is_base_gooseai_model,
     is_fine_tuned_openai,
+    get_last_model,
 )
 from langame.conversation_starters import (
     get_existing_conversation_starters,
@@ -48,8 +49,6 @@ class Ava:
         use_gpu: bool = False,
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
-        default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
-        default_api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
     ):
         self.logger = logger
         self.logger.info("initializing...")
@@ -60,24 +59,19 @@ class Ava:
         self.only_sample_confirmed_conversation_starters = (
             only_sample_confirmed_conversation_starters
         )
-        self.default_api_completion_model = default_api_completion_model
-        self.default_api_classification_model = default_api_classification_model
-        model_name = "flexudy/t5-small-wav2vec2-grammar-fixer"
-        self.grammar_tokenizer = T5Tokenizer.from_pretrained(model_name)
-        self.grammar_model = T5ForConditionalGeneration.from_pretrained(model_name).to(
-            self.device
-        )
+        self.default_api_completion_model = get_last_model()
+        self.default_api_classification_model = get_last_model(is_classification=True)
 
         # Load the model and tokenizer for local generation
-        model_name_or_path = "Langame/distilgpt2-starter"
-        token = os.environ.get("HUGGINGFACE_TOKEN")
-        self.completion_model = GPT2LMHeadModel.from_pretrained(
-            model_name_or_path, use_auth_token=token
-        ).to(self.device)
-        self.completion_model.eval().to(self.device)
-        self.completion_tokenizer = AutoTokenizer.from_pretrained(
-            model_name_or_path, use_auth_token=token
-        )
+        # model_name_or_path = "Langame/distilgpt2-starter"
+        # token = os.environ.get("HUGGINGFACE_TOKEN")
+        # self.completion_model = GPT2LMHeadModel.from_pretrained(
+        #     model_name_or_path, use_auth_token=token
+        # ).to(self.device)
+        # self.completion_model.eval().to(self.device)
+        # self.completion_tokenizer = AutoTokenizer.from_pretrained(
+        #     model_name_or_path, use_auth_token=token
+        # )
         cred = credentials.Certificate(service_account_key_path)
         firebase_admin.initialize_app(cred)
         self.firestore_client: Client = firestore.client()
@@ -99,7 +93,6 @@ class Ava:
             + f"device: {self.device}, "
             + f"shard: {self.shard}, "
             + f"only_sample_confirmed_conversation_starters: {self.only_sample_confirmed_conversation_starters}, "
-            + f"default_api_completion_model: {self.default_api_completion_model}"
             + f"default_api_classification_model: {self.default_api_classification_model}"
         )
         self.stopped = False
@@ -118,7 +111,20 @@ class Ava:
         )
         self.doc_watch = doc_ref.on_snapshot(self.on_snapshot)
         while not self.stopped:
-            pass
+            self.logger.info("Polling for new OpenAI model")
+            last_model = get_last_model()
+            if last_model["fine_tuned_model"] and last_model["fine_tuned_model"] != self.default_api_completion_model:
+                self.default_api_completion_model = last_model["fine_tuned_model"]
+                self.logger.info(
+                    f"Updated default_api_completion_model to {self.default_api_completion_model}"
+                )
+            last_classification_model = get_last_model(is_classification=True)
+            if last_classification_model["fine_tuned_model"] and last_classification_model["fine_tuned_model"] != self.default_api_classification_model:
+                self.default_api_classification_model = last_classification_model["fine_tuned_model"]
+                self.logger.info(
+                    f"Updated default_api_classification_model to {self.default_api_classification_model}"
+                )
+            time.sleep(60)
 
     def shutdown(self, _, __):
         """
@@ -325,13 +331,13 @@ class Ava:
             profanity_threshold=profanity_threshold,
             completion_type=completion_type,
             prompt_rows=prompt_rows,
-            model=self.completion_model,
-            tokenizer=self.completion_tokenizer,
+            model=None, #self.completion_model,
+            tokenizer=None, #self.completion_tokenizer,
             logger=self.logger,
             sentence_embeddings_model=self.sentence_embeddings_model,
             fix_grammar=fix_grammar,
-            grammar_tokenizer=self.grammar_tokenizer,
-            grammar_model=self.grammar_model,
+            grammar_tokenizer=None, #self.grammar_tokenizer,
+            grammar_model=None, #self.grammar_model,
             use_classification=parallel_completions > 1,
             parallel_completions=parallel_completions,
             api_completion_model=api_completion_model,
@@ -344,8 +350,6 @@ def serve(
     use_gpu: bool = False,
     shard: int = 0,
     only_sample_confirmed_conversation_starters: bool = True,
-    default_api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
-    default_api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
 ) -> None:
     """
     Start the conversation starter generation service.
@@ -363,8 +367,6 @@ def serve(
         use_gpu=use_gpu,
         shard=shard,
         only_sample_confirmed_conversation_starters=only_sample_confirmed_conversation_starters,
-        default_api_completion_model=default_api_completion_model,
-        default_api_classification_model=default_api_classification_model,
     )
 
     # Setup signal handler
