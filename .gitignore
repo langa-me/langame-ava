@@ -17,3 +17,6 @@ __pycache__
 third_party
 
 .DS_STORE
+
+.pypirc
+pip.conf

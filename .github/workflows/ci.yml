@@ -5,6 +5,8 @@ on:
     tags:
       - "v*.*.*"
 
+env:
+  PROJECT_ID: langame-86ac4
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,19 +29,37 @@ jobs:
           password: ${{ secrets.OVHCLOUD_REGISTRY_PASSWORD }}
       - 
         name: Get the tag
-        id: get_tag_name
-        # set the tag without the "v" prefix
-        # firstString="I love Suzi and Marry"
-        # secondString="Sara"
-        # echo "${firstString/Suzi/"$secondString"}"    
+        id: get_tag_name  
         run: echo "TAG_NAME=$(echo ${{github.ref_name}} | sed 's/^v//')" >> $GITHUB_ENV
+      
       -
-        name: Clone langa-me/langame-worker
+        name: Install Dependencies
         run: |
-          git clone https://louis030195:${{ secrets.PAT_TOKEN }}@github.com/langa-me/langame-worker.git ../langame-worker
-          mkdir -p third_party/langame-worker/langame
-          cp -r ../langame-worker/langame/ third_party/langame-worker/
-          cp ../langame-worker/setup.py third_party/langame-worker/setup.py
+          python -m pip install --upgrade pip
+          python -m pip install setuptools wheel twine keyrings.google-artifactregistry-auth
+
+      - 
+        id: auth
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: "${{ secrets.GCP_SA_KEY_PROD }}"
+
+      -
+        name: Setup pip config
+        run: |
+          gcloud config set artifacts/repository langame
+          gcloud config set artifacts/location us-central1
+
+          gcloud config set account cloud-run-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          gcloud auth activate-service-account cloud-run-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com --key-file=${{ env.GOOGLE_APPLICATION_CREDENTIALS }} --project=${{ env.PROJECT_ID }}
+
+          gcloud artifacts print-settings python > ./.pypirc
+          gcloud artifacts print-settings python \
+              --project ${{ env.PROJECT_ID }} \
+              --repository langame \
+              --location us-central1 \
+              --json-key ${{ env.GOOGLE_APPLICATION_CREDENTIALS }} \
+              | sed '11,$!d' | tee ./pip.conf
       -
         name: Build and push
         uses: docker/build-push-action@v2

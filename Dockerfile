@@ -22,8 +22,8 @@ WORKDIR /home/${USER}
 
 COPY ava ./ava/
 COPY ./setup.py ./setup.py
-COPY ./third_party/langame-worker/langame/ ../langame-worker/langame/
-COPY ./third_party/langame-worker/setup.py ../langame-worker/setup.py
+COPY .pypirc /root/.pypirc
+COPY pip.conf /root/.config/pip/pip.conf
 RUN pip install -e .
 
 # FROM python:3.8-slim AS build-image
