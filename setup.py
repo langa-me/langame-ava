@@ -9,7 +9,7 @@ if __name__ == "__main__":
         name="ava",
         packages=find_packages(),
         include_package_data=True,
-        version="1.1.8",
+        version="1.2.1",
         entry_points={"console_scripts": ["ava = ava:main"]},
         author="Louis Beaumont",
         author_email="louis@langa.me",
@@ -19,7 +19,7 @@ if __name__ == "__main__":
             "torch",
             "transformers",
             "sentencepiece",
-            f"langame @ file://localhost/{path_to_langame}#egg=langame==1.0.8",
+            f"langame @ file://localhost/{path_to_langame}#egg=langame==1.0.9",
         ],
         classifiers=[
             "Development Status :: 4 - Beta",

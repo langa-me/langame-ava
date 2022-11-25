@@ -383,6 +383,7 @@ def main():
 
     openai.api_key = os.environ.get("OPENAI_KEY")
     openai.organization = os.environ.get("OPENAI_ORG")
+    openai.log = "info"
 
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
