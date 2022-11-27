@@ -4,7 +4,7 @@ import os
 import logging
 import threading
 import signal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from random import choice
 import time
 import traceback
@@ -223,7 +223,7 @@ class Ava:
             }
             try:
                 start_time = time.time()
-                conversation_starters = self.generate(
+                topics, conversation_starters = self.generate(
                     topics=topics,
                     fix_grammar=fix_grammar,
                     parallel_completions=parallel_completions,
@@ -247,6 +247,7 @@ class Ava:
                         {
                             **new_doc_properties,
                             "conversation_starters": conversation_starters,
+                            "topics": topics,
                             "state": "error",
                             "error": "profane",
                         },
@@ -271,6 +272,7 @@ class Ava:
                     doc.reference,
                     {
                         **new_doc_properties,
+                        "topics": topics,
                         "state": "error",
                         # if rate limited by openai, use "resource-exhausted" instead of internal
                         "error": error_code,
@@ -290,6 +292,7 @@ class Ava:
             self.logger.info(f"Selected conversation starter: {conversation_starter}")
             obj = {
                 **new_doc_properties,
+                "topics": topics,
                 "state": "processed",
                 "conversationStarters": conversation_starters,
                 "content": conversation_starter["conversation_starter"],
@@ -310,7 +313,7 @@ class Ava:
         profanity_threshold: ProfanityThreshold = ProfanityThreshold.open,
         api_completion_model: str = "curie:ft-personal-2022-02-09-05-17-08",
         api_classification_model: str = "ada:ft-personal-2022-05-01-04-04-50",
-    ) -> List[dict]:
+    ) -> Tuple[List[str], List[dict]]:
         """
         Generate conversation starters for a given topic.
         :param topics: list of topics
@@ -320,7 +323,7 @@ class Ava:
         :param profanity_threshold: profanity threshold
         :param api_completion_model: api completion model
         :param api_classification_model: api classification model
-        :return: list of conversation starters
+        :return: list of topics and list of conversation starters
         """
         prompt_rows = 5
 
