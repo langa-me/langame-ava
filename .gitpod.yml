@@ -5,6 +5,10 @@ tasks:
         eval $(gp env -e)
         echo "$LANGAME_SVC_PROD" > svc.prod.json
         echo "$LANGAME_SVC_DEV" > svc.dev.json
+        echo "$LANGAME_PYPIRC" | base64 -d > .pypirc
+        echo "$LANGAME_PIPCONF" | base64 -d > pip.conf
+        cp .pypirc env/.pypirc
+        cp pip.conf env/pip.conf
         echo "Setting up Kubernetes..."
         mkdir -p ~/.kube
         echo $KUBECONFIG | python3 -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print(yaml.safe_dump(j))' > ~/.kube/config

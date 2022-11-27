@@ -57,6 +57,7 @@ class Ava:
         shard: int = 0,
         only_sample_confirmed_conversation_starters: bool = True,
     ):
+        start_time = time.time()
         self.logger = logger
         self.logger.info("initializing...")
         self.device = "cuda:0" if use_gpu and torch.cuda.is_available() else "cpu"
@@ -98,6 +99,9 @@ class Ava:
 
         assert self.conversation_starters, "No conversation starters found"
 
+        self.logger.info(
+            f"Ready after {time.time() - start_time:.2f} seconds."
+        )
         self.logger.info(
             f"Fetched {len(self.conversation_starters)} conversation starters, "
             + f"device: {self.device}, "
