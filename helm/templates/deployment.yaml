@@ -69,7 +69,7 @@ spec:
             # (1000 embeddings on 16GB RAM 4 CPU => ~20 min)
             timeoutSeconds: 18000
             successThreshold: 1
-            failureThreshold: 300
+            failureThreshold: 600
             exec:
               command:
               - cat

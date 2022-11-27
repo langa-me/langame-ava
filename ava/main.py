@@ -202,8 +202,11 @@ class Ava:
             )
             # if personas are provided, extract topics from it
             if len(personas) > 0:
-                topics = asyncio.run(extract_topics_from_personas(personas))
-
+                topics = loop.run_until_complete(
+                    extract_topics_from_personas(personas)
+                )
+            # TODO: alternative idea: semantic search dataset with the personas
+            # TODO: and then do few-shots inference with the selected samples
             if len(topics) == 0:
                 topics = ["ice breaker"]
             new_doc_properties = {
