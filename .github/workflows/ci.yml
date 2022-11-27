@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "*.*.*"
 
 env:
   PROJECT_ID: langame-86ac4
@@ -28,10 +28,9 @@ jobs:
           username: ${{ secrets.OVHCLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.OVHCLOUD_REGISTRY_PASSWORD }}
       - 
-        name: Get the tag
-        id: get_tag_name  
-        run: echo "TAG_NAME=$(echo ${{github.ref_name}} | sed 's/^v//')" >> $GITHUB_ENV
-      
+        name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
       -
         name: Install Dependencies
         run: |
@@ -71,7 +70,7 @@ jobs:
           build-args: HUGGINGFACE_TOKEN=${{ secrets.HUGGINGFACE_TOKEN }}
           tags: |
             ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:latest
-            ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:${{ env.TAG_NAME }}
+            ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:${{ env.VERSION }}
       - 
         name: Release
         uses: softprops/action-gh-release@v1

@@ -12,6 +12,12 @@ GCLOUD_PROJECT:=$(shell gcloud config list --format 'value(core.project)' 2>/dev
 K8S_NAMESPACE=$(shell cat .env | grep K8S_NAMESPACE | cut -d '=' -f 2)
 HELM_VALUES=$(shell cat .env | grep HELM_VALUES | cut -d '=' -f 2)
 
+install: ## Install dependencies
+	@echo "Installing dependencies..."
+	virtualenv -p python3 env
+	. env/bin/activate && pip install -e . && \
+		pip install -r requirements-test.txt
+
 prod: ## Set the GCP project to prod
 	@gcloud config set project langame-86ac4 2>/dev/null
 	@sed -i 's/OVH_PROJECT_ID=.*/OVH_PROJECT_ID="prod"/' .env
@@ -60,8 +66,8 @@ release:
 	echo "Committing '${VERSION}: $$COMMIT'"; \
 	git commit -m "${VERSION}: $$COMMIT"; \
 	git push origin main; \
-	git tag v${VERSION}; \
-	git push origin v${VERSION}
+	git tag ${VERSION}; \
+	git push origin ${VERSION}
 	@echo "Done, check https://github.com/langa-me/langame-ava/actions"
 
 # baremetal

@@ -23,7 +23,7 @@ image:
   repository: 5306t2h8.gra7.container-registry.ovh.net/prod/ava
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 1.2.5
+  tag: 1.2.6
 
 imagePullSecrets: []
 nameOverride: ""

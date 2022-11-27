@@ -17,14 +17,14 @@ import fire
 
 # AI
 import openai
-from transformers import (
-    T5ForConditionalGeneration,
-    T5Tokenizer,
-    AutoTokenizer,
-    GPT2LMHeadModel,
-)
+# from transformers import (
+#     T5ForConditionalGeneration,
+#     T5Tokenizer,
+#     AutoTokenizer,
+#     GPT2LMHeadModel,
+# )
 import torch
-
+# from sentry_sdk import capture_exception
 
 # Own libs
 from langame.profanity import ProfanityThreshold
@@ -39,6 +39,13 @@ from langame.conversation_starters import (
     get_existing_conversation_starters,
     generate_conversation_starter,
 )
+from langame.prompts import (
+    extract_topics_from_personas
+)
+# from langame.functions.errors import (
+#     init_errors
+# )
+
 
 
 class Ava:
@@ -73,7 +80,7 @@ class Ava:
         #     model_name_or_path, use_auth_token=token
         # )
         cred = credentials.Certificate(service_account_key_path)
-        firebase_admin.initialize_app(cred)
+        app = firebase_admin.initialize_app(cred)
         self.firestore_client: Client = firestore.client()
         (
             self.conversation_starters,
@@ -85,6 +92,9 @@ class Ava:
             logger=self.logger,
             confirmed=self.only_sample_confirmed_conversation_starters,
         )
+        # init_errors(
+        #     env="production" if app.project_id and not "dev" in app.project_id else "development"
+        # )
 
         assert self.conversation_starters, "No conversation starters found"
 
@@ -186,6 +196,16 @@ class Ava:
             api_classification_model = data_dict.get(
                 "apiClassificationModel", self.default_api_classification_model
             )
+            topics = data_dict.get("topics", [])
+            personas = data_dict.get(
+                "personas", []
+            )
+            # if personas are provided, extract topics from it
+            if len(personas) > 0:
+                topics = asyncio.run(extract_topics_from_personas(personas))
+
+            if len(topics) == 0:
+                topics = ["ice breaker"]
             new_doc_properties = {
                 "disabled": True,
                 "confirmed": False,
@@ -195,11 +215,13 @@ class Ava:
                 "profanityThreshold": profanity_threshold.value,
                 "apiCompletionModel": api_completion_model,
                 "apiClassificationModel": api_classification_model,
+                "personas": personas,
+                "topics": topics,
             }
             try:
                 start_time = time.time()
                 conversation_starters = self.generate(
-                    topics=data_dict.get("topics"),
+                    topics=topics,
                     fix_grammar=fix_grammar,
                     parallel_completions=parallel_completions,
                     completion_type=completion_type,
@@ -253,6 +275,7 @@ class Ava:
                     },
                     merge=True,
                 )
+                # capture_exception(e)
                 continue
             # get the conversation starter with highest classification score
             # or random if no classification or all are 0

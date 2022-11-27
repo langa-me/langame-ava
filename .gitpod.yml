@@ -2,9 +2,6 @@ tasks:
     - name: Secrets & configurations
       command: |
         make install &
-        make deps &
-        docker pull redocly/redoc &
-        docker pull swaggerapi/swagger-ui
         eval $(gp env -e)
         echo "$LANGAME_SVC_PROD" > svc.prod.json
         echo "$LANGAME_SVC_DEV" > svc.dev.json
