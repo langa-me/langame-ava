@@ -25,6 +25,7 @@ import openai
 # )
 import torch
 # from sentry_sdk import capture_exception
+import sentry_sdk
 
 # Own libs
 from langame.profanity import ProfanityThreshold
@@ -239,7 +240,9 @@ class Ava:
                 end_time = time.time()
                 self.logger.info(
                     f"Generated {len(conversation_starters)} conversation starters"
-                    + f" in {end_time - start_time} seconds"
+                    + f" in {end_time - start_time} seconds" +
+                    f" for topics: {topics}" +
+                    f" conversation starters: {conversation_starters}"
                 )
                 # if all contains profane words
                 if len(
@@ -417,7 +420,14 @@ def main():
     openai.api_key = os.environ.get("OPENAI_KEY")
     openai.organization = os.environ.get("OPENAI_ORG")
     openai.log = "info"
+    sentry_sdk.init(
+        dsn="https://073303020b5246948f90c671e1c16a9c@o404046.ingest.sentry.io/4504235882512384",
 
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=1.0
+    )
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
     assert os.environ.get("HUGGINGFACE_TOKEN"), "HUGGINGFACE_TOKEN not set"
