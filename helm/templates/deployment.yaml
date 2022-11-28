@@ -61,6 +61,8 @@ spec:
               value: "{{ required "You need to set an Huggingface key" .Values.huggingface.key }}"
             - name: GOOSEAI_KEY
               value: "{{ required "You need to set a GooseAI key" .Values.gooseai.key }}"
+            - name: SENTRY_RELEASE
+              value: "{{ .Values.image.tag }}"
           # Wait until embeddings and index built
           startupProbe:
             initialDelaySeconds: 60
