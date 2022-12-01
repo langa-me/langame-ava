@@ -426,7 +426,10 @@ def main():
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         # We recommend adjusting this value in production.
-        traces_sample_rate=1.0
+        traces_sample_rate=1.0,
+        _experiments={
+            "profiles_sample_rate": 1.0,
+        },
     )
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
