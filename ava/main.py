@@ -237,13 +237,7 @@ class Ava:
                     api_completion_model=api_completion_model,
                     api_classification_model=api_classification_model,
                 )
-                end_time = time.time()
-                self.logger.info(
-                    f"Generated {len(conversation_starters)} conversation starters"
-                    + f" in {end_time - start_time} seconds" +
-                    f" for topics: {topics}" +
-                    f" conversation starters: {conversation_starters}"
-                )
+                
                 # if all contains profane words
                 if len(
                     [e for e in conversation_starters if e.get("profane", False)]
@@ -308,7 +302,14 @@ class Ava:
             batch.set(
                 doc.reference, obj, merge=True,
             )
-        batch.commit()
+            end_time = time.time()
+            self.logger.info(
+                f"Generated {len(conversation_starters)} conversation starters"
+                + f" in {end_time - start_time} seconds" +
+                f" for topics: {topics}" +
+                f" conversation starters: {conversation_starters}"
+            )
+            batch.commit()
         self.callback_done.set()
 
     def generate(
