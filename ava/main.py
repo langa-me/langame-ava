@@ -238,7 +238,7 @@ class Ava:
                         )
                         continue
                 except Exception as e:
-                    self.logger.error(e, traceback.format_exc())
+                    self.logger.error(e, exc_info=1)
                     error_code = (
                         # i.e. AI APIs rate limit exceeded
                         "resource-exhausted"
