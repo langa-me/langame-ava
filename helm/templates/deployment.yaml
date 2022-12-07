@@ -63,6 +63,8 @@ spec:
               value: "{{ required "You need to set a GooseAI key" .Values.gooseai.key }}"
             - name: SENTRY_RELEASE
               value: "{{ .Values.image.tag }}"
+            - name: ENVIRONMENT
+              value: "{{ .Values.environment }}"
           # Wait until embeddings and index built
           startupProbe:
             initialDelaySeconds: 60

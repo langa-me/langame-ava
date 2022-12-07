@@ -1,30 +1,26 @@
+# disable module docstring
+# pylint: disable=C0114
 # Native
 import asyncio
 import os
 import logging
 import threading
 import signal
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from random import choice
 import time
 import traceback
 
+
 # Google
 from firebase_admin import credentials, firestore
 import firebase_admin
-from google.cloud.firestore import Client, DocumentSnapshot, ArrayUnion
+from google.cloud.firestore import Client, DocumentSnapshot
 import fire
 
 # AI
 import openai
-# from transformers import (
-#     T5ForConditionalGeneration,
-#     T5Tokenizer,
-#     AutoTokenizer,
-#     GPT2LMHeadModel,
-# )
 import torch
-# from sentry_sdk import capture_exception
 import sentry_sdk
 
 # Own libs
@@ -43,13 +39,11 @@ from langame.conversation_starters import (
 from langame.prompts import (
     extract_topics_from_personas
 )
-# from langame.functions.errors import (
-#     init_errors
-# )
 
 
 
 class Ava:
+    """TODO"""
     def __init__(
         self,
         service_account_key_path: str = "/etc/secrets/primary/svc.json",
@@ -71,18 +65,8 @@ class Ava:
         self.default_api_completion_model = get_last_model()
         self.default_api_classification_model = get_last_model(is_classification=True)
 
-        # Load the model and tokenizer for local generation
-        # model_name_or_path = "Langame/distilgpt2-starter"
-        # token = os.environ.get("HUGGINGFACE_TOKEN")
-        # self.completion_model = GPT2LMHeadModel.from_pretrained(
-        #     model_name_or_path, use_auth_token=token
-        # ).to(self.device)
-        # self.completion_model.eval().to(self.device)
-        # self.completion_tokenizer = AutoTokenizer.from_pretrained(
-        #     model_name_or_path, use_auth_token=token
-        # )
         cred = credentials.Certificate(service_account_key_path)
-        app = firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(cred)
         self.firestore_client: Client = firestore.client()
         (
             self.conversation_starters,
@@ -91,12 +75,8 @@ class Ava:
         ) = get_existing_conversation_starters(
             self.firestore_client,
             limit=None,
-            logger=self.logger,
             confirmed=self.only_sample_confirmed_conversation_starters,
         )
-        # init_errors(
-        #     env="production" if app.project_id and not "dev" in app.project_id else "development"
-        # )
 
         assert self.conversation_starters, "No conversation starters found"
 
@@ -160,157 +140,165 @@ class Ava:
         batch = self.firestore_client.batch()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        for doc in doc_snapshot:
-            data_dict = doc.to_dict()
-            self.logger.info(
-                f"Received document snapshot: id: {doc.id},"
-                + f" data: {data_dict}, changes: {changes}, read_time: {read_time}"
-            )
-            if not doc.exists or data_dict.get("topics", None) is None:
-                self.logger.info(f"Document {doc.id} does not exist or has no topics")
-                batch.set(
-                    doc.reference,
-                    {
-                        "state": "error",
-                        "disabled": True,
-                        "error": "no-topics",
-                        "confirmed": False,
-                    },
-                    merge=True,
-                )
-                batch.commit()
-                continue
-            if "content" in data_dict:
+        snapshot_start_time = time.time()
+        with sentry_sdk.start_transaction(op="task", name="on_snapshot") as span:
+            for doc in doc_snapshot:
+                data_dict = doc.to_dict()
                 self.logger.info(
-                    "Document already have a conversation starter, skipping"
+                    f"Received document snapshot: id: {doc.id},"
+                    + f" data: {data_dict}, changes: {changes}, read_time: {read_time}"
                 )
-                continue
-            batch.set(doc.reference, {"state": "processing"}, merge=True)
-            batch.commit()
-            fix_grammar = data_dict.get("fixGrammar", False)
-            parallel_completions = data_dict.get("parallelCompletions", 1)
-            completion_type = CompletionType[
-                data_dict.get("completionType", "openai_api")
-            ]
-            profanity_threshold = ProfanityThreshold[
-                data_dict.get("profanityThreshold", "open")
-            ]
-            api_completion_model = data_dict.get(
-                "apiCompletionModel", self.default_api_completion_model
-            )
-            api_classification_model = data_dict.get(
-                "apiClassificationModel", self.default_api_classification_model
-            )
-            topics = data_dict.get("topics", [])
-            personas = data_dict.get(
-                "personas", []
-            )
-            # if personas are provided, extract topics from it
-            if len(personas) > 0:
-                topics = loop.run_until_complete(
-                    extract_topics_from_personas(personas)
+                if not doc.exists or data_dict.get("topics", None) is None:
+                    self.logger.info(f"Document {doc.id} does not exist or has no topics")
+                    batch.set(
+                        doc.reference,
+                        {
+                            "state": "error",
+                            "disabled": True,
+                            "error": "no-topics",
+                            "confirmed": False,
+                        },
+                        merge=True,
+                    )
+                    batch.commit()
+                    continue
+                if "content" in data_dict:
+                    self.logger.info(
+                        "Document already have a conversation starter, skipping"
+                    )
+                    continue
+                batch.set(doc.reference, {"state": "processing"}, merge=True)
+                batch.commit()
+                fix_grammar = data_dict.get("fixGrammar", False)
+                parallel_completions = data_dict.get("parallelCompletions", 1)
+                completion_type = CompletionType[
+                    data_dict.get("completionType", "openai_api")
+                ]
+                profanity_threshold = ProfanityThreshold[
+                    data_dict.get("profanityThreshold", "open")
+                ]
+                api_completion_model = data_dict.get(
+                    "apiCompletionModel", self.default_api_completion_model
                 )
-            # TODO: alternative idea: semantic search dataset with the personas
-            # TODO: and then do few-shots inference with the selected samples
-            if len(topics) == 0:
-                topics = ["ice breaker"]
-            new_doc_properties = {
-                "disabled": True,
-                "confirmed": False,
-                "fixGrammar": fix_grammar,
-                "parallelCompletions": parallel_completions,
-                "completionType": completion_type.value,
-                "profanityThreshold": profanity_threshold.value,
-                "apiCompletionModel": api_completion_model,
-                "apiClassificationModel": api_classification_model,
-                "personas": personas,
-                "topics": topics,
-            }
-            try:
-                start_time = time.time()
-                topics, conversation_starters = self.generate(
-                    topics=topics,
-                    fix_grammar=fix_grammar,
-                    parallel_completions=parallel_completions,
-                    completion_type=completion_type,
-                    profanity_threshold=profanity_threshold,
-                    api_completion_model=api_completion_model,
-                    api_classification_model=api_classification_model,
+                api_classification_model = data_dict.get(
+                    "apiClassificationModel", self.default_api_classification_model
                 )
-                
-                # if all contains profane words
-                if len(
-                    [e for e in conversation_starters if e.get("profane", False)]
-                ) == len(conversation_starters):
-                    self.logger.warning(f"Profane: {conversation_starters}")
+                topics = data_dict.get("topics", [])
+                personas = data_dict.get(
+                    "personas", []
+                )
+                # if personas are provided, extract topics from it
+                if len(personas) > 0:
+                    topics = loop.run_until_complete(
+                        extract_topics_from_personas(personas)
+                    )
+                # TODO: alternative idea: semantic search dataset with the personas
+                # TODO: and then do few-shots inference with the selected samples
+                if len(topics) == 0:
+                    topics = ["ice breaker"]
+                new_doc_properties = {
+                    "disabled": True,
+                    "confirmed": False,
+                    "fixGrammar": fix_grammar,
+                    "parallelCompletions": parallel_completions,
+                    "completionType": completion_type.value,
+                    "profanityThreshold": profanity_threshold.value,
+                    "apiCompletionModel": api_completion_model,
+                    "apiClassificationModel": api_classification_model,
+                    "personas": personas,
+                    "topics": topics,
+                }
+                try:
+                    start_time = time.time()
+                    topics, conversation_starters = self.generate(
+                        topics=topics,
+                        fix_grammar=fix_grammar,
+                        parallel_completions=parallel_completions,
+                        completion_type=completion_type,
+                        profanity_threshold=profanity_threshold,
+                        api_completion_model=api_completion_model,
+                        api_classification_model=api_classification_model,
+                    )
+                    
+                    # if all contains profane words
+                    if len(
+                        [e for e in conversation_starters if e.get("profane", False)]
+                    ) == len(conversation_starters):
+                        self.logger.warning(f"Profane: {conversation_starters}")
+                        batch.set(
+                            doc.reference,
+                            {
+                                **new_doc_properties,
+                                "conversation_starters": conversation_starters,
+                                "topics": topics,
+                                "state": "error",
+                                "error": "profane",
+                            },
+                            merge=True,
+                        )
+                        continue
+                except Exception as e:
+                    self.logger.error(e, traceback.format_exc())
+                    error_code = (
+                        # i.e. AI APIs rate limit exceeded
+                        "resource-exhausted"
+                        if "Rate limit" in str(e)
+                        else "internal"
+                    )
+                    dev_message = (
+                        "You have been rate limited, "
+                        + "please reach out at contact@langa.me if you want an increase."
+                        if "Rate limit" in str(e)
+                        else str(e)
+                    )
                     batch.set(
                         doc.reference,
                         {
                             **new_doc_properties,
-                            "conversation_starters": conversation_starters,
                             "topics": topics,
                             "state": "error",
-                            "error": "profane",
+                            # if rate limited by openai, use "resource-exhausted" instead of internal
+                            "error": error_code,
+                            "developer_message": dev_message,
                         },
                         merge=True,
                     )
+                    # capture_exception(e)
                     continue
-            except Exception as e:
-                self.logger.error(e, traceback.format_exc())
-                error_code = (
-                    # i.e. AI APIs rate limit exceeded
-                    "resource-exhausted"
-                    if "Rate limit" in str(e)
-                    else "internal"
+                # get the conversation starter with highest classification score
+                # or random if no classification or all are 0
+                conversation_starter = max(
+                    conversation_starters,
+                    key=lambda x: int(x.get("classification", 0)),
+                    default=choice(conversation_starters),
                 )
-                dev_message = (
-                    "You have been rate limited, "
-                    + "please reach out at contact@langa.me if you want an increase."
-                    if "Rate limit" in str(e)
-                    else str(e)
-                )
+                self.logger.info(f"Selected conversation starter: {conversation_starter}")
+                obj = {
+                    **new_doc_properties,
+                    "topics": topics,
+                    "state": "processed",
+                    "conversationStarters": conversation_starters,
+                    "content": conversation_starter["conversation_starter"],
+                    "brokenGrammar": conversation_starter.get("broken_grammar", ""),
+                }
                 batch.set(
-                    doc.reference,
-                    {
-                        **new_doc_properties,
-                        "topics": topics,
-                        "state": "error",
-                        # if rate limited by openai, use "resource-exhausted" instead of internal
-                        "error": error_code,
-                        "developer_message": dev_message,
-                    },
-                    merge=True,
+                    doc.reference, obj, merge=True,
                 )
-                # capture_exception(e)
-                continue
-            # get the conversation starter with highest classification score
-            # or random if no classification or all are 0
-            conversation_starter = max(
-                conversation_starters,
-                key=lambda x: int(x.get("classification", 0)),
-                default=choice(conversation_starters),
-            )
-            self.logger.info(f"Selected conversation starter: {conversation_starter}")
-            obj = {
-                **new_doc_properties,
-                "topics": topics,
-                "state": "processed",
-                "conversationStarters": conversation_starters,
-                "content": conversation_starter["conversation_starter"],
-                "brokenGrammar": conversation_starter.get("broken_grammar", ""),
-            }
-            batch.set(
-                doc.reference, obj, merge=True,
-            )
-            end_time = time.time()
-            self.logger.info(
-                f"Generated {len(conversation_starters)} conversation starters"
-                + f" in {end_time - start_time} seconds" +
-                f" for topics: {topics}" +
-                f" conversation starters: {conversation_starters}"
-            )
+                end_time = time.time()
+                self.logger.info(
+                    f"Generated {len(conversation_starters)} conversation starters"
+                    + f" in {end_time - start_time} seconds" +
+                    f" for topics: {topics}" +
+                    f" conversation starters: {conversation_starters}"
+                )
+                batch.commit()
             batch.commit()
-        self.callback_done.set()
+            self.callback_done.set()
+            snapshot_latency = time.time() - snapshot_start_time
+            span.containing_transaction.set_measurement(
+                "snapshot_latency", snapshot_latency
+            )
+            self.logger.info(f"Snapshot processed in {snapshot_latency} seconds")
 
     def generate(
         self,
@@ -370,7 +358,6 @@ class Ava:
             prompt_rows=prompt_rows,
             model=None, #self.completion_model,
             tokenizer=None, #self.completion_tokenizer,
-            logger=self.logger,
             sentence_embeddings_model=self.sentence_embeddings_model,
             fix_grammar=fix_grammar,
             grammar_tokenizer=None, #self.grammar_tokenizer,
@@ -430,7 +417,9 @@ def main():
         traces_sample_rate=1.0,
         _experiments={
             "profiles_sample_rate": 1.0,
+            "custom_measurements": True,
         },
+        environment=os.environ.get("ENVIRONMENT", "development"),
     )
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"

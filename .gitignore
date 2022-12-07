@@ -20,6 +20,7 @@ third_party
 
 .pypirc
 pip.conf
+build
 
 # embeddings / indexes
 indexes
