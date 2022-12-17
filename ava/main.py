@@ -1,7 +1,6 @@
 # disable module docstring
 # pylint: disable=C0114
 # Native
-import asyncio
 import os
 import logging
 import threading
@@ -9,7 +8,7 @@ import signal
 from typing import List, Tuple
 from random import choice
 import time
-import traceback
+from multiprocessing.pool import ThreadPool
 
 
 # Google
@@ -137,12 +136,11 @@ class Ava:
         :param changes:
         :param read_time:
         """
+        if len(doc_snapshot) == 0:
+            return
         batch = self.firestore_client.batch()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         snapshot_start_time = time.time()
-        async def gen(doc: DocumentSnapshot):
-            # async all snaps
+        def gen(doc: DocumentSnapshot):
             data_dict = doc.to_dict()
             self.logger.info(
                 f"Received document snapshot: id: {doc.id},"
@@ -189,9 +187,7 @@ class Ava:
             )
             # if personas are provided, extract topics from it
             if len(personas) > 0:
-                topics = loop.run_until_complete(
-                    extract_topics_from_personas(personas)
-                )
+                topics = extract_topics_from_personas(personas)
             # TODO: alternative idea: semantic search dataset with the personas
             # TODO: and then do few-shots inference with the selected samples
             if len(topics) == 0:
@@ -210,7 +206,7 @@ class Ava:
             }
             try:
                 start_time = time.time()
-                topics, conversation_starters = await self.generate(
+                topics, conversation_starters = self.generate(
                     topics=topics,
                     fix_grammar=fix_grammar,
                     parallel_completions=parallel_completions,
@@ -293,10 +289,9 @@ class Ava:
             )
             batch.commit()
         with sentry_sdk.start_transaction(op="task", name="on_snapshot") as span:
-            tasks = []
-            for doc in doc_snapshot:
-                tasks.append(gen(doc))
-            loop.run_until_complete(asyncio.gather(*tasks))
+            with ThreadPool(len(doc_snapshot)) as pool:
+                pool.map(gen, doc_snapshot)
+
             batch.commit()
             self.callback_done.set()
             snapshot_latency = time.time() - snapshot_start_time
@@ -305,7 +300,7 @@ class Ava:
             )
             self.logger.info(f"Snapshot processed in {snapshot_latency} seconds")
 
-    async def generate(
+    def generate(
         self,
         topics: List[str],
         fix_grammar: bool = False,
@@ -354,19 +349,15 @@ class Ava:
             + f" api_classification_model {api_classification_model}"
             + f" prompt_rows {prompt_rows}"
         )
-        return await generate_conversation_starter(
+        return generate_conversation_starter(
             index=self.index,
             conversation_starter_examples=self.conversation_starters,
             topics=topics,
             profanity_threshold=profanity_threshold,
             completion_type=completion_type,
             prompt_rows=prompt_rows,
-            model=None, #self.completion_model,
-            tokenizer=None, #self.completion_tokenizer,
             sentence_embeddings_model=self.sentence_embeddings_model,
             fix_grammar=fix_grammar,
-            grammar_tokenizer=None, #self.grammar_tokenizer,
-            grammar_model=None, #self.grammar_model,
             use_classification=parallel_completions > 1,
             parallel_completions=parallel_completions,
             api_completion_model=api_completion_model,
