@@ -191,13 +191,12 @@ class Ava:
             posthog.capture(
                 "conversation_starter_requested",
                 {
-                    "fixGrammar": fix_grammar,
-                    "parallelCompletions": parallel_completions,
-                    "completionType": completion_type.value,
-                    "profanityThreshold": profanity_threshold.value,
+                    "fixGrammar": str(fix_grammar),
+                    "parallelCompletions": str(parallel_completions),
+                    "completionType": str(completion_type.value),
+                    "profanityThreshold": str(profanity_threshold.value),
                     "apiCompletionModel": api_completion_model,
                     "apiClassificationModel": api_classification_model,
-                    "personas": personas,
                     "topics": topics,
                 },
             )

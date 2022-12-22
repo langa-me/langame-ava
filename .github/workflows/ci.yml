@@ -70,8 +70,8 @@ jobs:
           tags: |
             ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:latest
             ${{ secrets.OVHCLOUD_REGISTRY }}/prod/ava:${{ steps.get_version.outputs.VERSION }}
-          # ghcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:latest
-          # ghcr.io/${{ env.PROJECT_ID }}/ava:${{ steps.get_version.outputs.VERSION }}
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:latest
+            gcr.io/${{ env.PROJECT_ID }}/ava:${{ steps.get_version.outputs.VERSION }}
       - 
         name: Discord Notification
         env:

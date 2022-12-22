@@ -5,7 +5,7 @@ if __name__ == "__main__":
         name="ava",
         packages=find_packages(),
         include_package_data=True,
-        version="1.4.3",
+        version="1.4.4",
         entry_points={"console_scripts": ["ava = ava:main"]},
         author="Louis Beaumont",
         author_email="louis@langa.me",
@@ -15,7 +15,7 @@ if __name__ == "__main__":
             "torch",
             "transformers",
             "sentencepiece",
-            "langame[all]",
+            "langame[ai]",
             "posthog",
         ],
         classifiers=[
