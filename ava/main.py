@@ -20,7 +20,6 @@ import fire
 # AI
 import openai
 import torch
-import sentry_sdk
 
 # Own libs
 from langame.profanity import ProfanityThreshold
@@ -38,6 +37,10 @@ from langame.conversation_starters import (
 from langame.prompts import (
     extract_topics_from_personas
 )
+
+# Other
+import sentry_sdk
+import posthog
 
 
 
@@ -184,6 +187,19 @@ class Ava:
             topics = data_dict.get("topics", [])
             personas = data_dict.get(
                 "personas", []
+            )
+            posthog.capture(
+                "conversation_starter_requested",
+                {
+                    "fixGrammar": fix_grammar,
+                    "parallelCompletions": parallel_completions,
+                    "completionType": completion_type.value,
+                    "profanityThreshold": profanity_threshold.value,
+                    "apiCompletionModel": api_completion_model,
+                    "apiClassificationModel": api_classification_model,
+                    "personas": personas,
+                    "topics": topics,
+                },
             )
             # if personas are provided, extract topics from it
             if len(personas) > 0:
@@ -417,6 +433,9 @@ def main():
         },
         environment=os.environ.get("ENVIRONMENT", "development"),
     )
+
+    posthog.project_api_key = 'phc_O3zFcxD2Ui35W5F7Fk9YFFnNAO5oGmKJaylYwnfC3Sc'
+    posthog.host = 'https://app.posthog.com'
     assert openai.api_key, "OPENAI_KEY not set"
     assert openai.organization, "OPENAI_ORG not set"
     assert os.environ.get("HUGGINGFACE_TOKEN"), "HUGGINGFACE_TOKEN not set"

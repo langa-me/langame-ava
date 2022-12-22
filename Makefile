@@ -15,7 +15,7 @@ HELM_VALUES=$(shell cat .env | grep HELM_VALUES | cut -d '=' -f 2)
 install: ## Install dependencies
 	@echo "Installing dependencies..."
 	virtualenv -p python3 env
-	. env/bin/activate && pip install -e .[all] && \
+	. env/bin/activate && pip install -e . && \
 		pip install -r requirements-test.txt
 
 prod: ## Set the GCP project to prod
