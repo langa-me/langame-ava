@@ -31,6 +31,12 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member serviceAccount:langame-ava@${PROJECT_ID}.iam.gserviceaccount.com \
     --role roles/iam.serviceAccountUser
 
+# Grant the appropriate Cloud Storage role
+# to the service account to provide registry access
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+  --member serviceAccount:langame-ava@${PROJECT_ID}.iam.gserviceaccount.com \
+  --role roles/storage.admin
+
 # get svc key
 KEY_PATH="langame-ava-deployer.svc.prod.json"
 gcloud iam service-accounts keys create ${KEY_PATH} \

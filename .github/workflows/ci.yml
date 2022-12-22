@@ -42,6 +42,10 @@ jobs:
         with:
           credentials_json: "${{ secrets.GCP_SA_KEY_PROD }}"
 
+      - 
+        name: Authorize Docker push
+        run: gcloud auth configure-docker
+
       -
         name: Setup pip config
         run: |
