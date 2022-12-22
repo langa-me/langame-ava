@@ -190,7 +190,8 @@ class Ava:
             )
             posthog.capture(
                 "conversation_starter_requested",
-                {
+                event="conversation_starter_requested",
+                properties={
                     "fixGrammar": str(fix_grammar),
                     "parallelCompletions": str(parallel_completions),
                     "completionType": str(completion_type.value),
